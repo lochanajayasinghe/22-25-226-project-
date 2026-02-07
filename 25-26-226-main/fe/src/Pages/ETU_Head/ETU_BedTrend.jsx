@@ -7,8 +7,7 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer,
-  ReferenceLine
+  ResponsiveContainer 
 } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
 import styles from './ETU_BedTrend.module.css';
@@ -17,64 +16,67 @@ const ETU_BedTrend = () => {
   const [timeframe, setTimeframe] = useState('Next Shift');
   const [chartData, setChartData] = useState([]);
   const [heatmapData, setHeatmapData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // --- FETCH REAL DATA ---
   useEffect(() => {
-    let data = [];
-    let heat = [];
+    setLoading(true);
 
-    // --- LOGIC 1: NEXT SHIFT (Granularity: Shift-by-Shift) ---
-    // Shows Day Shift vs Night Shift History & Future
-    if (timeframe === 'Next Shift') {
-      data = [
-        { name: 'Jan 05 (Night)', Total: 60, Capacity: 50 }, // Over capacity
-        { name: 'Jan 06 (Day)', Total: 51, Capacity: 50 },
-        { name: 'Jan 06 (Night)', Total: 81, Capacity: 50 }, // The "Next Shift" (Critical)
-        { name: 'Jan 07 (Day)', Total: 43, Capacity: 50 },
-      ];
-      heat = [
-        { label: 'Jan 05 (Night)', risk: 'High' },
-        { label: 'Jan 06 (Day)', risk: 'Medium' },
-        { label: 'Jan 06 (Night)', risk: 'Critical' },
-        { label: 'Jan 07 (Day)', risk: 'Low' },
-      ];
-    } 
-    
-    // --- LOGIC 2: NEXT DAY (Granularity: Daily Totals) ---
-    // Shows Whole Day Counts (Day + Night combined)
-    else if (timeframe === 'Next Day') {
-      data = [
-        { name: 'Jan 04', Total: 103, Capacity: 100 },
-        { name: 'Jan 03', Total: 93, Capacity: 100 },
-        { name: 'Jan 02', Total: 132, Capacity: 100 }, // High predicted load
-        { name: 'Jan 01', Total: 85, Capacity: 100 },
-      ];
-      heat = [
-        { label: 'Jan 04', risk: 'Medium' },
-        { label: 'Jan 03', risk: 'Low' },
-        { label: 'Jan 02', risk: 'Critical' },
-        { label: 'Jan 01', risk: 'Low' },
-      ];
-    } 
-    
-    // --- LOGIC 3: NEXT MONTH (Granularity: Monthly Totals) ---
-    // Shows Month-by-Month Counts
-    else {
-      data = [
-        { name: 'Jan', Total: 3050, Capacity: 3000 },
-        { name: 'Feb', Total: 2670, Capacity: 2800 },
-        { name: 'Mar', Total: 3850, Capacity: 3100 }, // Seasonal Spike
-        { name: 'Apr', Total: 2890, Capacity: 3000 },
-      ];
-      heat = [
-        { label: 'Jan', risk: 'Medium' },
-        { label: 'Feb', risk: 'Low' },
-        { label: 'Mar', risk: 'Critical' },
-        { label: 'Apr', risk: 'Medium' },
-      ];
-    }
+    // Call your Python Backend
+    fetch(`http://127.0.0.1:5001/api/dashboard?timeframe=${timeframe}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const graph = data.graph;
+        
+        // 1. DEFINE CAPACITY (Based on timeframe scale)
+        // (In a real app, this might come from the DB, but we set baselines here)
+        let capacityLimit = 50; 
+        if (timeframe === 'Next Day') capacityLimit = 100;
+        if (timeframe === 'Next Month') capacityLimit = 3000;
 
-    setChartData(data);
-    setHeatmapData(heat);
+        // 2. PROCESS CHART DATA
+        // Merge "observed" and "predicted" into one continuous "Total" line
+        const formattedData = graph.labels.map((label, index) => {
+          const obs = graph.datasets.observed[index];
+          const pred = graph.datasets.predicted[index];
+          
+          // Use observed if available, otherwise use predicted
+          const totalVal = obs !== null ? obs : pred;
+
+          return {
+            name: label,
+            Total: totalVal,
+            Capacity: capacityLimit
+          };
+        });
+
+        setChartData(formattedData);
+
+        // 3. GENERATE HEATMAP (Dynamic Risk Calculation)
+        // We look at the data points and decide if they are Critical/High/Low
+        const heat = formattedData.map(item => {
+          const val = item.Total;
+          const cap = item.Capacity;
+          
+          let riskLevel = 'Low';
+          if (val > cap * 1.1) riskLevel = 'Critical';    // > 110% capacity
+          else if (val > cap * 0.9) riskLevel = 'High';   // > 90% capacity
+          else if (val > cap * 0.7) riskLevel = 'Medium'; // > 70% capacity
+
+          return {
+            label: item.name,
+            risk: riskLevel
+          };
+        });
+
+        setHeatmapData(heat);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading trend data:", err);
+        setLoading(false);
+      });
+
   }, [timeframe]);
 
   const getRiskColor = (risk) => {
@@ -85,6 +87,14 @@ const ETU_BedTrend = () => {
       default: return '#22c55e';         
     }
   };
+
+  if (loading) return (
+    <div className={styles.container}>
+      <div className="flex h-full items-center justify-center">
+        <h3 className="text-gray-500 animate-pulse">Loading Trends...</h3>
+      </div>
+    </div>
+  );
 
   return (
     <div className={styles.container}>
@@ -141,7 +151,7 @@ const ETU_BedTrend = () => {
                 <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 6px 18px rgba(2,6,23,0.06)' }} />
                 <Legend verticalAlign="top" align="right" />
                 
-                {/* Single Line for Total Load */}
+                {/* Total Load Line */}
                 <Line 
                   type="monotone" 
                   dataKey="Total" 
@@ -152,7 +162,7 @@ const ETU_BedTrend = () => {
                   name="Total Patient Load" 
                 />
                 
-                {/* Reference Line for Capacity */}
+                {/* Capacity Reference Line */}
                 <Line 
                   type="monotone" 
                   dataKey="Capacity" 
@@ -166,8 +176,6 @@ const ETU_BedTrend = () => {
             </ResponsiveContainer>
           </div>
         </section>
-
-        
 
         {/* --- HEATMAP SECTION --- */}
         <section className={styles.card}>
@@ -199,11 +207,11 @@ const ETU_BedTrend = () => {
             <AlertTriangle size={18} className={styles.alertIcon} />
             <p>
               <strong>Roster Recommendation:</strong> 
-              {timeframe === 'Next Shift' 
-                ? ' High load expected for Night Shift. Approve overtime for 2 staff members.'
-                : timeframe === 'Next Day'
-                ? ' Critical load predicted for Dec 31. Activate overflow protocols.'
-                : ' March shows seasonal spike. Plan staff leave accordingly.'
+              {heatmapData.some(h => h.risk === 'Critical') 
+                ? ' Critical load detected in forecast period. Activate overflow protocols immediately.' 
+                : heatmapData.some(h => h.risk === 'High') 
+                ? ' High load expected. Consider approving overtime for staff.'
+                : ' Operations appear normal. Standard rostering applies.'
               }
             </p>
           </div>
