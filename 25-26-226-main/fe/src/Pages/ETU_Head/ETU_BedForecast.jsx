@@ -16,75 +16,64 @@ import styles from './ETU_BedForecast.module.css';
 const ETU_BedForecast = () => {
   // --- STATE ---
   const [timeframe, setTimeframe] = useState('Next Shift');
-  const [model, setModel] = useState('TFT');
+  const [model, setModel] = useState('TFT (Transformer)'); // UI only for now
   const [chartData, setChartData] = useState([]);
   const [tableData, setTableData] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // --- MOCK DATA ENGINE ---
+  // --- FETCH DATA ENGINE ---
   useEffect(() => {
-    let generatedData = [];
-    let generatedTable = [];
-    
-    // BASELINE: Total ETU Volume (No more Zone splitting)
-    const shiftAvg = 45; // Average patients per shift for the whole unit
-    const dailyAvg = shiftAvg * 2; 
-    const monthlyAvg = dailyAvg * 30;
+    setLoading(true);
 
-    // --- LOGIC 1: NEXT SHIFT (Shift-Wise View) ---
-    if (timeframe === 'Next Shift') {
-      generatedData = [
-        { name: 'Jan 04 (Day)', historical: shiftAvg - 5, predicted: null, range: null },
-        { name: 'Jan 04 (Night)', historical: shiftAvg + 8, predicted: null, range: null },
-        { name: 'Jan 05 (Day)', historical: shiftAvg - 2, predicted: null, range: null },
-        // Connector
-        { name: 'Jan 05 (Day)', historical: null, predicted: shiftAvg - 2, range: [shiftAvg-2, shiftAvg-2] },
-        // The Prediction
-        { name: 'Jan 05 (Night)', historical: null, predicted: shiftAvg + 12, range: [shiftAvg + 5, shiftAvg + 20] },
-        { name: 'Jan 06 (Day)', historical: null, predicted: shiftAvg + 12, range: [shiftAvg + 5, shiftAvg + 20] },
-        { name: 'Jan 06 (Night)', historical: null, predicted: shiftAvg + 12, range: [shiftAvg + 5, shiftAvg + 20] },
-      ];
-      generatedTable = [
-        { label: 'Jan 05 (Night)', prediction: shiftAvg + 12, min: shiftAvg + 5, max: shiftAvg + 20 },
-        { label: 'Jan 06 (Day)', prediction: shiftAvg + 12, min: shiftAvg + 5, max: shiftAvg + 20 },
-        { label: 'Jan 06 (Night)', prediction: shiftAvg + 12, min: shiftAvg + 5, max: shiftAvg + 20 }
-      ];
-    } 
-    
-    // --- LOGIC 2: NEXT DAY (Daily Total View) ---
-    else if (timeframe === 'Next Day') {
-      generatedData = [
-        { name: 'Jan 03', historical: dailyAvg - 10, predicted: null, range: null },
-        { name: 'Jan 04', historical: dailyAvg + 15, predicted: null, range: null },
-        { name: 'Jan 05', historical: dailyAvg - 5, predicted: null, range: null },
-        // Connector
-        { name: 'Jan 05', historical: null, predicted: dailyAvg - 5, range: [dailyAvg-5, dailyAvg-5] },
-        // The Prediction (Tomorrow)
-        { name: 'Jan 06', historical: null, predicted: dailyAvg + 25, range: [dailyAvg + 15, dailyAvg + 35] },
-      ];
-      generatedTable = [
-        { label: 'Jan 06  (Tomorrow)', prediction: dailyAvg + 25, min: dailyAvg + 15, max: dailyAvg + 35 }
-      ];
-    } 
-    
-    // --- LOGIC 3: NEXT MONTH (Monthly Total View) ---
-    else if (timeframe === 'Next Month') {
-      generatedData = [
-        { name: 'Nov', historical: monthlyAvg - 50, predicted: null, range: null },
-        { name: 'Dec', historical: monthlyAvg + 120, predicted: null, range: null },
-        { name: 'Jan', historical: monthlyAvg - 20, predicted: null, range: null },
-        // Connector
-        { name: 'Jan', historical: null, predicted: monthlyAvg - 20, range: [monthlyAvg-20, monthlyAvg-20] },
-        // The Prediction (Next Month)
-        { name: 'Feb', historical: null, predicted: monthlyAvg + 180, range: [monthlyAvg + 100, monthlyAvg + 250] },
-      ];
-      generatedTable = [
-        { label: 'February 2026', prediction: monthlyAvg + 180, min: monthlyAvg + 100, max: monthlyAvg + 250 }
-      ];
-    }
+    // 1. Call your Python Backend
+    fetch(`http://127.0.0.1:5001/api/dashboard?timeframe=${timeframe}`)
+      .then((res) => res.json())
+      .then((data) => {
+        // 2. PROCESS BACKEND DATA FOR RECHARTS
+        // The backend sends separate arrays (labels, observed, predicted).
+        // We must zip them together into objects: { name, historical, predicted, range }
+        
+        const graph = data.graph;
+        const formattedChartData = graph.labels.map((label, index) => {
+          const obs = graph.datasets.observed[index];
+          const pred = graph.datasets.predicted[index];
+          const low = graph.datasets.lower_bound[index];
+          const high = graph.datasets.upper_bound[index];
 
-    setChartData(generatedData);
-    setTableData(generatedTable);
-  }, [timeframe, model]);
+          return {
+            name: label,
+            historical: obs, // Blue Line
+            predicted: pred, // Orange Dotted Line
+            // Only create a range array if we have prediction bounds
+            range: (low !== null && high !== null) ? [low, high] : null 
+          };
+        });
+
+        setChartData(formattedChartData);
+
+        // 3. PROCESS TABLE DATA
+        // Filter only the rows that are "Future Predictions" (where 'predicted' exists but isn't just a connector)
+        // Or simply take the last item as the main forecast
+        const futureRows = formattedChartData.filter(row => row.predicted !== null && row.range !== null).map(row => ({
+          label: row.name,
+          prediction: row.predicted,
+          min: row.range[0],
+          max: row.range[1]
+        }));
+        
+        setTableData(futureRows);
+        setSummary(data.summary); // Use the AI summary text
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch forecast:", err);
+        setLoading(false);
+      });
+
+  }, [timeframe]); // Re-run whenever 'timeframe' changes
+
+  if (loading) return <div className={styles.container}><h3>Loading AI Models...</h3></div>;
 
   return (
     <div className={styles.container}>
@@ -97,8 +86,6 @@ const ETU_BedForecast = () => {
           </div>
 
           <div className={styles.controls}>
-            {/* REMOVED TARGET ZONE SELECTOR */}
-
             <div className={styles.controlGroup}>
               <span className={styles.label}>Timeframe:</span>
               <select 
@@ -204,9 +191,8 @@ const ETU_BedForecast = () => {
             <Info className={styles.analysisIcon} size={20} />
             <p>
               <strong>Analysis:</strong> Based on the <strong>{model}</strong> model, the 
-              <strong> {timeframe}</strong> prediction indicates a total load of <strong>{tableData[0]?.prediction}</strong> patients. 
-              {timeframe === 'Next Shift' && ' Prepare for increased intake during the Night Shift.'}
-              {timeframe === 'Next Month' && ' This indicates a seasonal increase.'}
+              <strong> {timeframe}</strong> prediction indicates a total load of <strong>{summary?.predicted_arrivals}</strong> patients. 
+              Prepare for increased intake due to <strong>{summary?.primary_driver}</strong>.
             </p>
           </div>
         </section>
