@@ -10,60 +10,58 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Info } from 'lucide-react';
+import { Info, Activity } from 'lucide-react';
 import styles from './ETU_BedForecast.module.css';
 
 const ETU_BedForecast = () => {
   // --- STATE ---
   const [timeframe, setTimeframe] = useState('Next Shift');
-  const [model, setModel] = useState('TFT (Transformer)'); // UI only for now
+  const [model, setModel] = useState('TFT (Transformer)'); 
   const [chartData, setChartData] = useState([]);
   const [tableData, setTableData] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState(null); // Stores the prediction number & driver
   const [loading, setLoading] = useState(true);
 
-  // --- FETCH DATA ENGINE ---
+  // --- FETCH DATA FROM PYTHON BACKEND ---
   useEffect(() => {
     setLoading(true);
 
-    // 1. Call your Python Backend
-    fetch(`http://127.0.0.1:5001/api/dashboard?timeframe=${timeframe}`)
+    // 1. Call your Universal AI Endpoint
+    fetch('http://127.0.0.1:5001/predict')
       .then((res) => res.json())
       .then((data) => {
-        // 2. PROCESS BACKEND DATA FOR RECHARTS
-        // The backend sends separate arrays (labels, observed, predicted).
-        // We must zip them together into objects: { name, historical, predicted, range }
-        
-        const graph = data.graph;
-        const formattedChartData = graph.labels.map((label, index) => {
-          const obs = graph.datasets.observed[index];
-          const pred = graph.datasets.predicted[index];
-          const low = graph.datasets.lower_bound[index];
-          const high = graph.datasets.upper_bound[index];
+        console.log("Forecast Data Received:", data);
 
-          return {
-            name: label,
-            historical: obs, // Blue Line
-            predicted: pred, // Orange Dotted Line
-            // Only create a range array if we have prediction bounds
-            range: (low !== null && high !== null) ? [low, high] : null 
-          };
-        });
+        // 2. PROCESS CHART DATA
+        // Backend sends separate lists. We zip them into one object per X-axis point.
+        if (data.graph_labels) {
+          const formattedChartData = data.graph_labels.map((label, index) => {
+            const low = data.confidence_lower[index];
+            const high = data.confidence_upper[index];
 
-        setChartData(formattedChartData);
+            return {
+              name: label,
+              historical: data.observed_history[index], // Blue Line
+              predicted: data.ai_prediction[index],     // Orange Dotted Line
+              // Range Area: [min, max]. Only exist if we have prediction bounds.
+              range: (low !== null && high !== null) ? [low, high] : null 
+            };
+          });
+          setChartData(formattedChartData);
+        }
 
         // 3. PROCESS TABLE DATA
-        // Filter only the rows that are "Future Predictions" (where 'predicted' exists but isn't just a connector)
-        // Or simply take the last item as the main forecast
-        const futureRows = formattedChartData.filter(row => row.predicted !== null && row.range !== null).map(row => ({
-          label: row.name,
-          prediction: row.predicted,
-          min: row.range[0],
-          max: row.range[1]
-        }));
-        
-        setTableData(futureRows);
-        setSummary(data.summary); // Use the AI summary text
+        // Use the pre-calculated rows from backend
+        if (data.forecast_table_rows) {
+          setTableData(data.forecast_table_rows);
+        }
+
+        // 4. SET SUMMARY TEXT DATA
+        setSummary({
+            predicted_arrivals: data.predicted_arrivals,
+            primary_driver: data.primary_driver
+        });
+
         setLoading(false);
       })
       .catch((err) => {
@@ -71,9 +69,16 @@ const ETU_BedForecast = () => {
         setLoading(false);
       });
 
-  }, [timeframe]); // Re-run whenever 'timeframe' changes
+  }, [timeframe]); // Re-run if timeframe changes (Backend logic can be expanded later)
 
-  if (loading) return <div className={styles.container}><h3>Loading AI Models...</h3></div>;
+  if (loading) return (
+    <div className={styles.container}>
+        <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh'}}>
+            <Activity className="animate-spin" size={32} color="#2563eb" />
+            <h3 style={{marginTop: 20, color: '#64748b'}}>Generating AI Forecast...</h3>
+        </div>
+    </div>
+  );
 
   return (
     <div className={styles.container}>
@@ -143,7 +148,7 @@ const ETU_BedForecast = () => {
                   tickLine={false} 
                   tick={{ fill: '#64748b', fontSize: 12 }} 
                   dy={10}
-                  interval={0} 
+                  interval="preserveStartEnd" 
                 />
                 <YAxis 
                   axisLine={false} 
@@ -155,6 +160,7 @@ const ETU_BedForecast = () => {
                 />
                 <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px' }}/>
                 
+                {/* Confidence Range (Area) */}
                 <Area 
                   type="monotone" 
                   dataKey="range" 
@@ -163,23 +169,26 @@ const ETU_BedForecast = () => {
                   name="Confidence Range"
                 />
 
+                {/* Historical Data (Blue Line) */}
                 <Line 
                   type="monotone" 
                   dataKey="historical" 
                   stroke="#0ea5e9" 
                   strokeWidth={3} 
-                  dot={{ r: 5, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} 
+                  dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} 
                   activeDot={{ r: 6 }}
                   name="Observed Data" 
+                  connectNulls={true}
                 />
 
+                {/* Prediction (Orange Dotted Line) */}
                 <Line 
                   type="monotone" 
                   dataKey="predicted" 
                   stroke="#f97316" 
                   strokeWidth={3} 
                   strokeDasharray="5 5"
-                  dot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} 
+                  dot={{ r: 4, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} 
                   name="AI Prediction" 
                 />
               </ComposedChart>
@@ -215,7 +224,7 @@ const ETU_BedForecast = () => {
               <tbody>
                 {tableData.map((row, index) => (
                   <tr key={index}>
-                    <td>{row.label}</td>
+                    <td>{row.period}</td>
                     <td className={styles.bold}>{row.prediction}</td>
                     <td className={styles.subtle}>{row.min}</td>
                     <td className={styles.subtle}>{row.max}</td>
