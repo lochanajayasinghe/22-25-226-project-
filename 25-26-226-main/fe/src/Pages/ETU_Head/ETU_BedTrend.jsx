@@ -7,9 +7,10 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  ReferenceLine
 } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Activity } from 'lucide-react';
 import styles from './ETU_BedTrend.module.css';
 
 const ETU_BedTrend = () => {
@@ -17,59 +18,47 @@ const ETU_BedTrend = () => {
   const [chartData, setChartData] = useState([]);
   const [heatmapData, setHeatmapData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [capacity, setCapacity] = useState(50);
 
-  // --- FETCH REAL DATA ---
+  // --- FETCH REAL DATA FROM PYTHON BACKEND ---
   useEffect(() => {
     setLoading(true);
 
-    // Call your Python Backend
-    fetch(`http://127.0.0.1:5001/api/dashboard?timeframe=${timeframe}`)
+    // Fetch from your Universal AI Endpoint
+    fetch('http://127.0.0.1:5001/predict')
       .then((res) => res.json())
       .then((data) => {
-        const graph = data.graph;
-        
-        // 1. DEFINE CAPACITY (Based on timeframe scale)
-        // (In a real app, this might come from the DB, but we set baselines here)
-        let capacityLimit = 50; 
-        if (timeframe === 'Next Day') capacityLimit = 100;
-        if (timeframe === 'Next Month') capacityLimit = 3000;
+        console.log("Trend Data Received:", data);
 
-        // 2. PROCESS CHART DATA
-        // Merge "observed" and "predicted" into one continuous "Total" line
-        const formattedData = graph.labels.map((label, index) => {
-          const obs = graph.datasets.observed[index];
-          const pred = graph.datasets.predicted[index];
-          
-          // Use observed if available, otherwise use predicted
-          const totalVal = obs !== null ? obs : pred;
+        // 1. Setup Capacity Line
+        setCapacity(data.capacity_line || 50);
 
-          return {
-            name: label,
-            Total: totalVal,
-            Capacity: capacityLimit
-          };
-        });
+        // 2. Map Backend Lists to Recharts Format
+        // Backend sends: labels: ["Dec 30", ...], observed: [16, ...], predicted: [null, ..., 15]
+        if (data.graph_labels) {
+          const formattedData = data.graph_labels.map((label, index) => {
+            return {
+              name: label,
+              // If observed exists, use it. If not, use predicted.
+              // This creates a continuous single line for "Total Volume"
+              Total: data.observed_history[index] !== null ? data.observed_history[index] : data.ai_prediction[index],
+              // We also keep them separate if you ever want to style them differently (dashed line)
+              Observed: data.observed_history[index],
+              Predicted: data.ai_prediction[index]
+            };
+          });
+          setChartData(formattedData);
 
-        setChartData(formattedData);
+          // 3. Map Backend Risk Levels to Heatmap
+          // Backend sends: ["Low", "Medium", "High", "Normal"]
+          const risks = data.heatmap_risk_levels || [];
+          const heat = data.graph_labels.map((label, index) => ({
+             label: label,
+             risk: risks[index] || "Low" // Default to Low if missing
+          }));
+          setHeatmapData(heat);
+        }
 
-        // 3. GENERATE HEATMAP (Dynamic Risk Calculation)
-        // We look at the data points and decide if they are Critical/High/Low
-        const heat = formattedData.map(item => {
-          const val = item.Total;
-          const cap = item.Capacity;
-          
-          let riskLevel = 'Low';
-          if (val > cap * 1.1) riskLevel = 'Critical';    // > 110% capacity
-          else if (val > cap * 0.9) riskLevel = 'High';   // > 90% capacity
-          else if (val > cap * 0.7) riskLevel = 'Medium'; // > 70% capacity
-
-          return {
-            label: item.name,
-            risk: riskLevel
-          };
-        });
-
-        setHeatmapData(heat);
         setLoading(false);
       })
       .catch((err) => {
@@ -79,19 +68,21 @@ const ETU_BedTrend = () => {
 
   }, [timeframe]);
 
+  // Helper for Heatmap Colors
   const getRiskColor = (risk) => {
     switch (risk) {
-      case 'Critical': return '#ef4444'; 
-      case 'High': return '#f97316';     
-      case 'Medium': return '#eab308';   
-      default: return '#22c55e';         
+      case 'Critical': return '#ef4444'; // Red
+      case 'High': return '#f97316';     // Orange
+      case 'Medium': return '#eab308';   // Yellow
+      default: return '#22c55e';         // Green (Low/Normal)
     }
   };
 
   if (loading) return (
     <div className={styles.container}>
-      <div className="flex h-full items-center justify-center">
-        <h3 className="text-gray-500 animate-pulse">Loading Trends...</h3>
+      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%'}}>
+        <Activity className="animate-spin" size={32} color="#2563eb" />
+        <p style={{marginTop:10, color:'#64748b'}}>Loading AI Trends...</p>
       </div>
     </div>
   );
@@ -118,7 +109,7 @@ const ETU_BedTrend = () => {
           >
             <option>Next Shift</option>
             <option>Next Day</option>
-            <option>Next Month</option>
+            {/* Note: Backend currently simulates data. This dropdown won't change data yet, but keeps UI ready. */}
           </select>
         </div>
       </div>
@@ -130,47 +121,41 @@ const ETU_BedTrend = () => {
                Total Patient Volume Trend
             </h3>
             <span style={{fontSize:12, color:'#94a3b8'}}>
-              {timeframe === 'Next Shift' ? '(Shift-by-Shift Breakdown)' : 
-               timeframe === 'Next Day' ? '(Daily Total Breakdown)' : 
-               '(Monthly Breakdown)'}
+              (Historical vs. AI Prediction)
             </span>
           </div>
           <div className={styles.chartWrap}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 24, left: 12, bottom: 6 }}>
+              <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 6 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e6eef6" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#475569', fontSize: 12 }} 
+                  tick={{ fill: '#475569', fontSize: 11 }} 
                   dy={10} 
-                  interval={0}
+                  interval="preserveStartEnd"
                 />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12 }} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 6px 18px rgba(2,6,23,0.06)' }} />
-                <Legend verticalAlign="top" align="right" />
+                <Tooltip 
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 6px 18px rgba(2,6,23,0.06)' }}
+                    itemStyle={{ color: '#1e293b' }}
+                />
+                <Legend verticalAlign="top" align="right" iconType="circle"/>
                 
-                {/* Total Load Line */}
+                {/* Capacity Reference Line */}
+                <ReferenceLine y={capacity} label="Max Capacity" stroke="#94a3b8" strokeDasharray="3 3" />
+
+                {/* Main Data Line */}
                 <Line 
                   type="monotone" 
                   dataKey="Total" 
                   stroke="#2563eb" 
-                  strokeWidth={4} 
-                  dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} 
-                  activeDot={{ r: 7 }}
-                  name="Total Patient Load" 
-                />
-                
-                {/* Capacity Reference Line */}
-                <Line 
-                  type="monotone" 
-                  dataKey="Capacity" 
-                  stroke="#94a3b8" 
-                  strokeWidth={2} 
-                  strokeDasharray="5 5" 
-                  dot={false} 
-                  name="Safe Capacity Limit" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} 
+                  activeDot={{ r: 6 }}
+                  name="Patient Load" 
+                  connectNulls={true} // Ensures the line connects even if backend sends separated lists
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -206,12 +191,12 @@ const ETU_BedTrend = () => {
           <div className={styles.insightBox}>
             <AlertTriangle size={18} className={styles.alertIcon} />
             <p>
-              <strong>Roster Recommendation:</strong> 
+              <strong>AI Recommendation:</strong> 
               {heatmapData.some(h => h.risk === 'Critical') 
-                ? ' Critical load detected in forecast period. Activate overflow protocols immediately.' 
+                ? ' Critical load forecasted. Activate overflow protocols.' 
                 : heatmapData.some(h => h.risk === 'High') 
-                ? ' High load expected. Consider approving overtime for staff.'
-                : ' Operations appear normal. Standard rostering applies.'
+                ? ' High load expected. Ensure full staff roster.'
+                : ' Load is within normal capacity limits.'
               }
             </p>
           </div>
