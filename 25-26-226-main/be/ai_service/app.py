@@ -1,3 +1,5 @@
+# 
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 import pandas as pd
@@ -11,10 +13,22 @@ app = Flask(__name__)
 CORS(app)
 
 # ==========================================
-# 1. CONFIGURATION
+# 1. ROBUST FILE LOADING
 # ==========================================
+# Get the exact path of the folder where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Force Python to look in THIS specific folder
+model_path = os.path.join(BASE_DIR, "hospital_etu_tft_model_80split.ckpt")
+dataset_file = os.path.join(BASE_DIR, "New Hospital ETU_dataset_2000-2024.csv")
+
+print(f"🔍 Looking for Model at: {model_path}")
+
+# Global variables
+best_tft = None
+df = None
 CURRENT_BED_CAPACITY = 25
-CURRENT_OCCUPANCY = 23  # Mocking live status
+CURRENT_OCCUPANCY = 23
 
 # Ward Availability
 WARD_A_NORMAL_FREE = 5
@@ -24,42 +38,34 @@ WARD_B_SURGE_FREE  = 0
 GENERAL_NORMAL_FREE = 2
 GENERAL_SURGE_FREE  = 12
 
-# ==========================================
-# 2. LOAD AI ENGINE (Run Once on Startup)
-# ==========================================
-print("⏳ Loading AI Model...")
-model_path = "hospital_etu_tft_model_80split.ckpt"
-dataset_file = "New Hospital ETU_dataset_2000-2024.csv"
-
-# Global variables
-best_tft = None
-df = None
-
 if os.path.exists(model_path) and os.path.exists(dataset_file):
     try:
+        print("⏳ Loading AI Model... (This may take a few seconds)")
         best_tft = TemporalFusionTransformer.load_from_checkpoint(model_path, map_location="cpu")
+        
         df = pd.read_csv(dataset_file)
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.sort_values(['Date', 'Shift_ID']).reset_index(drop=True)
         df['time_idx'] = np.arange(len(df))
         df['group'] = "ETU_Main"
-        print("✅ AI Engine Loaded Successfully.")
+        
+        print("✅ AI Engine Loaded Successfully!")
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        print(f"❌ Error loading files: {e}")
 else:
-    print("⚠️ Warning: Model or CSV file not found. Make sure they are in the same folder as app.py")
+    print("\n⚠️  CRITICAL ERROR: FILES MISSING!")
+    print(f"   Please make sure 'hospital_etu_tft_model_80split.ckpt' is in: {BASE_DIR}\n")
 
 # ==========================================
-# 3. THE ENDPOINT (Connects to React)
+# 2. PREDICTION ENDPOINT
 # ==========================================
 @app.route('/predict', methods=['GET'])
 def predict():
     if best_tft is None:
-        return jsonify({"error": "Model not loaded"}), 500
+        return jsonify({"error": "AI Model not loaded."}), 500
 
     # --- A. PREPARE DATA ---
     current_dt = datetime.now()
-    # Logic to toggle shift based on real time
     if 7 <= current_dt.hour < 19:
         target_shift = "Night"
         target_date = current_dt.date()
@@ -69,7 +75,7 @@ def predict():
         target_date = current_dt.date() + timedelta(days=1)
         weather = "Sunny"
 
-    # Create Input Row
+    # Input for Prediction
     future_row = df.tail(1).copy()
     future_row['time_idx'] = df['time_idx'].max() + 1
     future_row['Date'] = pd.to_datetime(target_date)
@@ -77,7 +83,6 @@ def predict():
     future_row['DayOfWeek'] = pd.to_datetime(target_date).strftime('%A')
     future_row['Weather'] = weather
 
-    # Merge with history
     history_data = df.tail(60).copy()
     predict_df = pd.concat([history_data, future_row], ignore_index=True)
 
@@ -101,7 +106,6 @@ def predict():
     
     free_etu = max(0, CURRENT_BED_CAPACITY - CURRENT_OCCUPANCY)
     
-    # Variables
     xKeep = LpVariable("Keep", 0, free_etu, cat='Integer')
     xA = LpVariable("WardA", 0, WARD_A_NORMAL_FREE, cat='Integer')
     xB = LpVariable("WardB", 0, WARD_B_NORMAL_FREE, cat='Integer')
@@ -111,27 +115,40 @@ def predict():
     xG_S = LpVariable("Gen_S", 0, GENERAL_SURGE_FREE, cat='Integer')
     xE = LpVariable("Ext", 0, None, cat='Integer')
 
-    # Solver Logic
     prob += (xKeep + xA + xB + xG + xA_S + xB_S + xG_S + xE) == predicted_arrivals
     prob += 1*xKeep + 2*(xA + xB + xG) + 10*(xA_S + xB_S + xG_S) + 100*xE
     prob.solve()
 
-    # --- D. FORMAT OUTPUT ---
+    # --- D. DYNAMIC DATE GENERATION (The Fix) ---
+    # Create valid dates for the last 3 days relative to prediction
+    date_minus_3 = target_date - timedelta(days=3)
+    date_minus_2 = target_date - timedelta(days=2)
+    date_minus_1 = target_date - timedelta(days=1)
+
+    graph_labels = [
+        date_minus_3.strftime('%b %d'),
+        date_minus_2.strftime('%b %d'),
+        date_minus_1.strftime('%b %d'),
+        f"{target_date.strftime('%b %d')} (Pred)"
+    ]
+
+    # Mock history values (taken from real data tail)
+    recent_values = df['ETU_Admissions'].tail(3).tolist()
+    
+    observed_history = recent_values + [None]
+    ai_prediction = [None] * 3 + [predicted_arrivals]
+    
+    # --- E. FORMAT OUTPUT ---
     occupancy_pct = int((CURRENT_OCCUPANCY / CURRENT_BED_CAPACITY) * 100)
     risk = "Critical" if predicted_arrivals > 30 else ("High" if predicted_arrivals > 15 else "Normal")
-    
-    # Graph Data
-    recent = df.tail(4)
-    graph_lbls = recent['Date'].dt.strftime('%b %d').tolist() + [f"{target_date.strftime('%b %d')} (Pred)"]
-    obs_hist = recent['ETU_Admissions'].tolist() + [None]
-    ai_pred = [None] * len(recent) + [predicted_arrivals]
-
-    # Optimization Text
     surge_count = int(value(xA_S) + value(xB_S) + value(xG_S))
+    
     rec_text = "Standard operation."
     if surge_count > 0: rec_text = "CRITICAL: Activate Corridor C Protocols immediately."
+    elif risk == "High": rec_text = "High load expected. Approve overtime."
 
     return jsonify({
+        # DASHBOARD
         "current_occupancy": CURRENT_OCCUPANCY,
         "total_capacity": CURRENT_BED_CAPACITY,
         "occupancy_percentage": occupancy_pct,
@@ -140,18 +157,18 @@ def predict():
         "primary_driver": "Weather-Driven Surge" if weather == "Rainy" else "Standard Load",
         "driver_impact": f"{weather} conditions detected. Historical analysis indicates potential inflow surge.",
         
-        # Trends
+        # TRENDS (With Fixed Dates)
         "timeframe_label": "Next Shift",
-        "graph_labels": graph_lbls,
-        "observed_history": obs_hist,
-        "ai_prediction": ai_pred,
+        "graph_labels": graph_labels,
+        "observed_history": observed_history,
+        "ai_prediction": ai_prediction,
         "capacity_line": CURRENT_BED_CAPACITY,
         "heatmap_risk_levels": ["Low", "Medium", "High", risk],
 
-        # Forecast
+        # FORECAST
         "confidence_score": "92%",
-        "confidence_lower": [None]*4 + [int(low_ci)],
-        "confidence_upper": [None]*4 + [int(high_ci)],
+        "confidence_lower": [None]*3 + [int(low_ci)],
+        "confidence_upper": [None]*3 + [int(high_ci)],
         "model_used": "TFT (Transformer)",
         "forecast_table_rows": [{
             "period": f"{target_date.strftime('%b %d')} ({target_shift})",
@@ -160,7 +177,7 @@ def predict():
             "max": int(high_ci)
         }],
 
-        # Optimization
+        # OPTIMIZATION
         "optimization_status": "MILP Solution Ready",
         "shortage_count": predicted_arrivals - int(value(xKeep)),
         "action_plan_keep_etu": int(value(xKeep)),
@@ -174,11 +191,11 @@ def predict():
         "recommendation_text": rec_text
     })
 
-# Add support for the other endpoint name just in case
 @app.route('/api/optimization', methods=['GET'])
 def optimization_alias():
     return predict()
 
 if __name__ == '__main__':
-    print("🚀 Hospital AI Backend Running on Port 5001")
+    print(f"🚀 Backend Loading from: {BASE_DIR}")
+    print("🚀 Server starting on Port 5001...")
     app.run(debug=True, port=5001)
