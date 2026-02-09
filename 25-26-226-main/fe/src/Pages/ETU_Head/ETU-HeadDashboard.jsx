@@ -305,4 +305,4 @@ const AlertCard = ({ color, bg, border, title, desc, link }) => (
 export default ETU_HeadDashboard;
 
 // Consistency export
-ETU_HeadDashboard.displayName = 'ETU-HeadDashboard';
+ETU_HeadDashboard.displayName = 'ETU-HeadDashboard'; 
