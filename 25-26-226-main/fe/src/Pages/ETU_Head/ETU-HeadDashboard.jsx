@@ -18,7 +18,8 @@ const ETU_HeadDashboard = () => {
 
   // --- FETCH REAL DATA FROM PYTHON BACKEND ---
   useEffect(() => {
-    fetch('http://127.0.0.1:5001/predict')
+    // FIX: Changed '127.0.0.1' -> 'localhost' to match your working backend
+    fetch('http://localhost:5001/predict')
       .then(res => res.json())
       .then(jsonData => {
         console.log("Dashboard Data Received:", jsonData);
@@ -38,7 +39,13 @@ const ETU_HeadDashboard = () => {
     </div>
   );
 
-  if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}>⚠️ Backend Offline. Is python app.py running?</div>;
+  if (!data) return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#ef4444', background: '#fef2f2', borderRadius: 12, margin: 20 }}>
+      <AlertTriangle size={48} style={{ margin: '0 auto 16px', display: 'block' }} />
+      <h2>⚠️ Dashboard Cannot Connect</h2>
+      <p>Please check if <b>app_v2.py</b> is running on port <b>5001</b>.</p>
+    </div>
+  );
 
   // --- EXTRACT DATA FROM BACKEND ---
   const { 
@@ -55,7 +62,7 @@ const ETU_HeadDashboard = () => {
   const occupancyColor = isCritical ? '#ef4444' : occupancy_percentage > 60 ? '#f59e0b' : '#10b981';
 
   // Dynamic Icon for Driver (Rain vs Sun)
-  const DriverIcon = primary_driver.includes("Rain") ? CloudRain : Sun;
+  const DriverIcon = primary_driver && primary_driver.includes("Rain") ? CloudRain : Sun;
 
   // Banner Styles based on Criticality
   const bannerBase = {
@@ -303,6 +310,3 @@ const AlertCard = ({ color, bg, border, title, desc, link }) => (
 );
 
 export default ETU_HeadDashboard;
-
-// Consistency export
-ETU_HeadDashboard.displayName = 'ETU-HeadDashboard'; 
