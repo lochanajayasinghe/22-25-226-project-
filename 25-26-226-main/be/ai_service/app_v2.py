@@ -289,7 +289,8 @@ print("⏳ Connecting to MongoDB...")
 try:
     client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
     db = client["test"]          
-    collection = db["Research"]  
+    collection = db["Research"]             
+    history_collection = db["BedPredictionHistory"] 
     client.admin.command('ping') 
     print("✅ Connected to Cloud Database!")
 except Exception as e:
@@ -372,33 +373,23 @@ def predict():
     df = fetch_history_from_db()
     if df is None: return jsonify({"error": "Database empty."}), 500
 
-    # =========================================================
-    # B. STRICT SHIFT LOGIC (Based on 07:00 AM / 07:00 PM)
-    # =========================================================
+    # B. STRICT SHIFT LOGIC (07:00 / 19:00 Cutoff)
     current_dt = datetime.now()
     current_hour = current_dt.hour
     
-    # 1. DAYTIME (07:00 to 18:59) -> We are IN Day Shift.
-    #    Target: Upcoming NIGHT Shift (Same Date).
     if 7 <= current_hour < 19:
         target_date = current_dt.date()
         target_shift = "Night"
-        
-    # 2. EVENING (19:00 to 23:59) -> We are IN Night Shift.
-    #    Target: Upcoming DAY Shift (Tomorrow).
     elif current_hour >= 19:
         target_date = current_dt.date() + timedelta(days=1)
         target_shift = "Day"
-        
-    # 3. EARLY MORNING (00:00 to 06:59) -> We are STILL IN Night Shift.
-    #    Target: Upcoming DAY Shift (Today).
-    else: # hour < 7
+    else: 
         target_date = current_dt.date()
         target_shift = "Day"
 
     print(f"\n🕒 Time: {current_dt.strftime('%H:%M')} | Plan: {target_date} ({target_shift})")
 
-    # Define Weather explicitly to avoid Pandas error later
+    # Define Weather
     target_weather = "Rainy" if target_shift == "Night" else "Sunny"
 
     # C. PREPARE INPUT
@@ -416,7 +407,6 @@ def predict():
 
     # D. DATA CLEANING
     cat_cols = ["Shift_ID", "DayOfWeek", "IsHoliday", "SpecialEvent", "Weather", "PublicTransportStatus", "OutbreakAlert"]
-    
     for col in cat_cols:
         predict_df[col] = predict_df[col].astype(str)
         if col == "SpecialEvent":
@@ -463,7 +453,37 @@ def predict():
     prob += 1*xKeep + 2*(xA + xB + xG) + 10*(xA_S + xB_S + xG_S) + 100*xE
     prob.solve()
     
-    # G. FORMAT OUTPUT
+    # --- G. SAVE PREDICTION TO HISTORY (NO DUPLICATES) ---
+    try:
+        prediction_record = {
+            "generated_at": datetime.now(),
+            "target_date": target_date.strftime('%Y-%m-%d'),
+            "target_shift": target_shift,
+            "predicted_arrivals": predicted_arrivals,
+            "optimization_plan": {
+                "direct_admit": int(value(xKeep)),
+                "transfer_A": int(value(xA)),
+                "transfer_B": int(value(xB)),
+                "transfer_Gen": int(value(xG)),
+                "surge_beds": int(value(xA_S) + value(xB_S) + value(xG_S)),
+                "external_transfer": int(value(xE))
+            }
+        }
+        
+        # --- THE FIX: UPSERT (Update if exists, Insert if new) ---
+        history_collection.update_one(
+            {
+                "target_date": target_date.strftime('%Y-%m-%d'),
+                "target_shift": target_shift
+            },
+            {"$set": prediction_record},
+            upsert=True
+        )
+        print(f"✅ Prediction for {target_date} ({target_shift}) Synced to DB!")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not save history: {e}")
+
+    # H. FORMAT OUTPUT
     date_minus_3 = target_date - timedelta(days=3)
     date_minus_2 = target_date - timedelta(days=2)
     date_minus_1 = target_date - timedelta(days=1)
@@ -493,7 +513,6 @@ def predict():
         "occupancy_percentage": occupancy_pct,
         "predicted_arrivals": predicted_arrivals,
         "system_status": "CRITICAL" if occupancy_pct > 90 else "NORMAL",
-        # FIX: Use simple string variable 'target_weather', NOT the dataframe row
         "primary_driver": "Weather-Driven Surge" if target_weather == "Rainy" else "Standard Load",
         "driver_impact": f"{target_weather} conditions detected. Historical analysis indicates potential inflow surge.",
         "timeframe_label": "Next Shift",
