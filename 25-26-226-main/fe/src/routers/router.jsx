@@ -24,7 +24,7 @@ import ETU_DocDashboard from "../Pages/ETU_Doctor/ETU-DocDashboard";
 import ETU_DocLayout from "../Pages/ETU_Doctor/ETU-DocLayout";
 import DocManage from "../Pages/ETU_Doctor/DocManage";
 import DocAppointments from "../Pages/ETU_Doctor/DocAppointments";
-import ETU_BedForecast from "../Pages/ETU_Head/ETU_BedForecast";/////
+import ETU_BedInventory from "../Pages/ETU_Head/ETU_BedInventory";/////
 import ETU_BedTrend from "../Pages/ETU_Head/ETU_BedTrend";//////
 import ETU_BedOptimization from "../Pages/ETU_Head/ETU_BedOptimization";//////
 
@@ -112,7 +112,7 @@ const router = createBrowserRouter([
       { path:"/ETU_Head/dashboard/graphs", element:<ETU_HeadGraphs/> },
       { path:"/ETU_Head/dashboard/medandequip", element:<MedandEquip/> },
       { path:"/ETU_Head/dashboard/doctors", element:<DocDetails/> },
-      { path:"/ETU_Head/dashboard/forecast", element:<ETU_BedForecast/> },////////
+      { path:"/ETU_Head/dashboard/ETU_BedInventory", element:<ETU_BedInventory/> },////////
       { path:"/ETU_Head/dashboard/trend", element:<ETU_BedTrend/> },///////
       { path:"/ETU_Head/dashboard/optimization", element:<ETU_BedOptimization/> },///////
       { path:"/ETU_Head/dashboard/ETU_HeadIllnessAlerts", element:<ETU_HeadIllnessAlerts/> },
