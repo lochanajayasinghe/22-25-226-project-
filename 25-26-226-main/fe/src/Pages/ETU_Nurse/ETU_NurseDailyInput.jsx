@@ -286,7 +286,6 @@
 // export default ETU_NurseDailyInput;
 
 
-
 import React, { useState, useEffect } from 'react';
 import { 
   ClipboardList, 
@@ -517,7 +516,8 @@ const DailyInputModal = ({ ward, onClose }) => {
           {/* Date & Shift Row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* FIX: Removed duplicate 'display: block' */}
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Calendar size={14} /> Date
               </label>
               <input 
@@ -528,7 +528,8 @@ const DailyInputModal = ({ ward, onClose }) => {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* FIX: Removed duplicate 'display: block' */}
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Clock size={14} /> Shift
               </label>
               <select 
