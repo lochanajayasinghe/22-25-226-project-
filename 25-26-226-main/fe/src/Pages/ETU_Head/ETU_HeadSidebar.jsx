@@ -92,34 +92,45 @@ const ETU_HeadSidebar = () => {
             </Sidebar.Item>
 
           
-            {/* Bed Forecasting: collapsible parent with three sub-pages */}
+            {/* Bed Forecasting: Collapsible Parent Group */}
             <div className="bg-transparent mt-4">
               <Sidebar.Item
-                onClick={() => setBedsOpen((s) => !s)}
+                onClick={() => setBedsOpen(!bedsOpen)} /* TOGGLE ONLY - No Navigation */
                 icon={HiOutlineChartBar}
-                className={`transition-all duration-200 rounded-lg px-3 py-2 flex items-center gap-2 ${
+                className={`cursor-pointer transition-all duration-200 rounded-lg px-3 py-2 flex items-center gap-2 ${
                   isBedsActive ? 'bg-blue-200 text-blue-900 font-semibold' : 'text-slate-800 hover:bg-blue-100'
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
                   <span>Bed Forecasting</span>
-                  <HiOutlineChevronDown className={`ml-2 transform transition-transform ${bedsOpen ? 'rotate-180' : 'rotate-0'}`} />
+                  <HiOutlineChevronDown 
+                    className={`ml-2 transform transition-transform duration-200 ${bedsOpen ? 'rotate-180' : 'rotate-0'}`} 
+                  />
                 </div>
               </Sidebar.Item>
 
+              {/* Sub-Pages (Only displayed when Bed Forecasting is clicked/Open) */}
               {bedsOpen && (
                 <div className="pl-6 mt-2 space-y-1">
-                  <Sidebar.Item onClick={() => navigate('/ETU_Head/dashboard/trend')} icon={HiOutlineChartBar} className={itemClass('/ETU_Head/dashboard/trend')}>
+                  
+                  {/* Sub-Page 1: Optimization */}
+                  <Sidebar.Item 
+                    onClick={() => navigate('/ETU_Head/dashboard/optimization')} 
+                    icon={HiOutlineClipboardList} 
+                    className={itemClass('/ETU_Head/dashboard/optimization')}
+                  >
+                    Optimization Page
+                  </Sidebar.Item>
+
+                  {/* Sub-Page 2: Trends */}
+                  <Sidebar.Item 
+                    onClick={() => navigate('/ETU_Head/dashboard/trend')} 
+                    icon={HiOutlineChartBar} 
+                    className={itemClass('/ETU_Head/dashboard/trend')}
+                  >
                     Trend Page
                   </Sidebar.Item>
 
-                  <Sidebar.Item onClick={() => navigate('/ETU_Head/dashboard/forecast')} icon={HiOutlineBeaker} className={itemClass('/ETU_Head/dashboard/forecast')}>
-                    Forecast Page
-                  </Sidebar.Item>
-
-                  <Sidebar.Item onClick={() => navigate('/ETU_Head/dashboard/optimization')} icon={HiOutlineClipboardList} className={itemClass('/ETU_Head/dashboard/optimization')}>
-                    Optimization Page
-                  </Sidebar.Item>
                 </div>
               )}
             </div>
