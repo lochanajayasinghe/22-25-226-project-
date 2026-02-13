@@ -81,6 +81,15 @@ const ETU_NurseSidebar = () => {
               {/* Sub-items (Only show if open) */}
               {bedsOpen && (
                 <div className="pl-6 mt-1 space-y-1">
+
+                  <Sidebar.Item
+                    icon={HiOutlineChartBar}
+                    onClick={() => navigate("/ETU_Nurse/dashboard/ETU_NurseOptimization")}
+                    className={itemClass("/ETU_Nurse/dashboard/ETU_NurseOptimization")}
+                  >
+                    Optimization
+                  </Sidebar.Item>
+
                   <Sidebar.Item
                     icon={HiOutlineClipboardList}
                     onClick={() => navigate("/ETU_Nurse/dashboard/ETU_NurseDailyInput")}
@@ -94,7 +103,7 @@ const ETU_NurseSidebar = () => {
                     onClick={() => navigate("/ETU_Nurse/dashboard/ETU_NurseInventory")}
                     className={itemClass("/ETU_Nurse/dashboard/ETU_NurseInventory")}
                   >
-                    Inventory
+                    Inventory  
                   </Sidebar.Item>
 
                   <Sidebar.Item
