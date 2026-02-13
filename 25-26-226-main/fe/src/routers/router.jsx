@@ -66,9 +66,10 @@ import EditProduct from "../Pages/Store_Manager/EditProduct";
 import Alerts from "../Pages/Store_Manager/Alerts"; 
 import InventoryReqStore from "../Pages/Store_Manager/Inventory_Requests";
 
-import WardNurseDashboard from "../Pages/Ward_Nurse/WardNurseDashboard";
-import WardNurseLayout from "../Pages/Ward_Nurse/WardNurseLayout";  
-import WardNurseDailyInput from "../Pages/Ward_Nurse/WardNurseDailyInput";/////  
+import Ward_A_NurseDashboard from "../Pages/Ward_A_Nurse/Ward_A_NurseDashboard";
+import Ward_A_NurseLayout from "../Pages/Ward_A_Nurse/Ward_A_NurseLayout";  
+import Ward_A_NurseDailyInput from "../Pages/Ward_A_Nurse/Ward_A_NurseDailyInput";/////
+import Ward_A_NurseInventory from "../Pages/Ward_A_Nurse/Ward_A_NurseInventory";//////  
 
 import MethaRoleLayout from "../Pages/MethaRole/MethaRoleLayout";
 import MethaRoleDashboard from "../Pages/MethaRole/MethaRoleDashboard";
@@ -207,11 +208,12 @@ const router = createBrowserRouter([
   },
 
   {
-    path:"/Ward_Nurse/dashboard",
-    element:<WardNurseLayout/>,
+    path:"/Ward_A_Nurse/dashboard",
+    element:<Ward_A_NurseLayout/>,
     children:[
-      { path:"/Ward_Nurse/dashboard/WardNurseDashboard", element:<WardNurseDashboard/> },///////
-      { path:"/Ward_Nurse/dashboard/WardNurseDailyInput", element:<WardNurseDailyInput/> }/////
+      { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseDashboard", element:<Ward_A_NurseDashboard/> },///////
+      { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseDailyInput", element:<Ward_A_NurseDailyInput/> },/////
+      { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseInventory", element:<Ward_A_NurseInventory/> },
       
     ]
   },

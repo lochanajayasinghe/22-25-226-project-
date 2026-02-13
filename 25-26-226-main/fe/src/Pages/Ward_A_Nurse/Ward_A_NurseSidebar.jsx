@@ -10,7 +10,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 
-const WardNurseSidebar = () => {
+const Ward_A_NurseSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [bedsOpen, setBedsOpen] = useState(false);
@@ -56,19 +56,27 @@ const WardNurseSidebar = () => {
           <Sidebar.ItemGroup className="bg-transparent space-y-1">
 
             <Sidebar.Item
-              onClick={() => navigate("/Ward_Nurse/dashboard/WardNurseDashboard")}
+              onClick={() => navigate("/Ward_A_Nurse/dashboard/Ward_A_NurseDashboard")}
               icon={HiOutlineHome}
-              className={itemClass("/Ward_Nurse/dashboard/WardNurseDashboard")}
+              className={itemClass("/Ward_A_Nurse/dashboard/Ward_A_NurseDashboard")}
             >
               Dashboard
             </Sidebar.Item>
 
             <Sidebar.Item
-              onClick={() => navigate("/Ward_Nurse/dashboard/WardNurseDailyInput")}
+              onClick={() => navigate("/Ward_A_Nurse/dashboard/Ward_A_NurseDailyInput")}
               icon={HiOutlineChartBar}
-              className={itemClass("/Ward_Nurse/dashboard/WardNurseDailyInput")}
+              className={itemClass("/Ward_A_Nurse/dashboard/Ward_A_NurseDailyInput")}
             >
               Daily Input
+            </Sidebar.Item>
+
+            <Sidebar.Item
+              onClick={() => navigate("/Ward_A_Nurse/dashboard/Ward_A_NurseInventory")}
+              icon={HiOutlineChartBar}
+              className={itemClass("/Ward_A_Nurse/dashboard/Ward_A_NurseInventory")}
+            >
+              Inventory
             </Sidebar.Item>
 
             
@@ -93,4 +101,4 @@ const WardNurseSidebar = () => {
   );
 };
 
-export default WardNurseSidebar;
+export default Ward_A_NurseSidebar;

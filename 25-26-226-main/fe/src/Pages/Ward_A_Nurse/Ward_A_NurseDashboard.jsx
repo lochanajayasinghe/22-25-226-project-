@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CloudRain, AlertTriangle, Thermometer, Wind } from 'lucide-react'; // Make sure to install lucide-react or use alternatives
 
-const WardNurseDashboard = () => {
+const Ward_A_NurseDashboard = () => {
   // 1. Local Ward Data State
   const [wardData, setWardData] = useState({
     capacity: 100,
@@ -117,4 +117,4 @@ const WardNurseDashboard = () => {
   );
 };
 
-export default WardNurseDashboard;
+export default Ward_A_NurseDashboard;

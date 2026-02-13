@@ -1,13 +1,13 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import WardNurseSidebar from './WardNurseSidebar';
+import Ward_A_NurseSidebar from './Ward_A_NurseSidebar';
 
-const WardNurseLayout = () => {
+const Ward_A_NurseLayout = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Fixed Sidebar */}
       <div className="w-64 flex-shrink-0 h-full">
-        <WardNurseSidebar />
+        <Ward_A_NurseSidebar />
       </div>
 
       {/* Main Content */}
@@ -18,4 +18,4 @@ const WardNurseLayout = () => {
   );
 };
 
-export default WardNurseLayout;
+export default Ward_A_NurseLayout;
