@@ -18,7 +18,6 @@ const ETU_HeadDashboard = () => {
 
   // --- FETCH REAL DATA FROM PYTHON BACKEND ---
   useEffect(() => {
-    // FIX: Changed '127.0.0.1' -> 'localhost' to match your working backend
     fetch('http://localhost:5001/predict')
       .then(res => res.json())
       .then(jsonData => {
@@ -39,11 +38,11 @@ const ETU_HeadDashboard = () => {
     </div>
   );
 
-  if (!data) return (
+  if (!data || data.error) return (
     <div style={{ padding: 40, textAlign: 'center', color: '#ef4444', background: '#fef2f2', borderRadius: 12, margin: 20 }}>
       <AlertTriangle size={48} style={{ margin: '0 auto 16px', display: 'block' }} />
       <h2>⚠️ Dashboard Cannot Connect</h2>
-      <p>Please check if <b>app_v2.py</b> is running on port <b>5001</b>.</p>
+      <p>{data?.error || "Please check if app_v2.py is running on port 5001."}</p>
     </div>
   );
 
@@ -54,8 +53,14 @@ const ETU_HeadDashboard = () => {
     occupancy_percentage, 
     predicted_arrivals, 
     system_status, 
-    primary_driver 
+    primary_driver,
+    forecast_table_rows 
   } = data;
+
+  // Extract Prediction Target (Date & Shift)
+  const predictionTarget = forecast_table_rows && forecast_table_rows.length > 0 
+    ? forecast_table_rows[0].period 
+    : "Next Shift";
 
   // Determine Colors based on Real Status
   const isCritical = system_status === 'CRITICAL' || occupancy_percentage > 85;
@@ -145,8 +150,10 @@ const ETU_HeadDashboard = () => {
               <div style={{ fontSize: 22, fontWeight: 800, color: isCritical ? '#7f1d1d' : '#1e3a8a', lineHeight: 1.2 }}>
                 Expect {predicted_arrivals} Patients 
               </div>
-              <div style={{ fontSize: 14, color: isCritical ? '#b91c1c' : '#3b82f6', marginTop: 4, fontWeight: 500 }}>
-                Primary Driver: <strong>{primary_driver}</strong>
+              
+              {/* DISPLAYING THE PREDICTION TARGET DATE/SHIFT HERE */}
+              <div style={{ fontSize: 14, color: isCritical ? '#b91c1c' : '#3b82f6', marginTop: 4, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Clock size={14} /> Predicting for: <strong>{predictionTarget}</strong>
               </div>
             </div>
           </div>
@@ -184,7 +191,7 @@ const ETU_HeadDashboard = () => {
             icon={<BedDouble size={24} color="#3b82f6" />} 
             title="Total Capacity" 
             value={`${total_capacity} Beds`} 
-            sub="Fixed Unit Size"
+            sub="Based on Functional Inventory"
             bgIcon="#eff6ff"
           />
           <StatCard 
