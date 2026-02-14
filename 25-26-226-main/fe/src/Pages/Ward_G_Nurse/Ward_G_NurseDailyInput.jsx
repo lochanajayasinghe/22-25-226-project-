@@ -8,84 +8,351 @@ import {
   Users, 
   Stethoscope, 
   Bed, 
-  ChevronRight,
-  X,
-  Loader,
-  Info
+  ChevronRight, 
+  X, 
+  Loader, 
+  Info, 
+  Tent, 
+  CheckCircle2, 
+  AlertCircle 
 } from 'lucide-react';
 
 const Ward_G_NurseDailyInput = () => {
-  const [selectedWard, setSelectedWard] = useState(null);
+  const [selectedWard, setSelectedWard] = useState(null); // Standard Census Modal
+  const [showSurgeModal, setShowSurgeModal] = useState(false); // Surge Modal
+  
+  // --- STATE FOR LATEST SURGE STATUS ---
+  const [latestSurge, setLatestSurge] = useState({
+    count: 0,
+    lastUpdated: null,
+    loading: true
+  });
 
   // --- WARD CONFIGURATION (General Ward ONLY) ---
-  const wards = [
-    { id: 'GEN', name: 'General Ward', icon: Users, color: '#f59e0b' }
-  ];
+  const wardInfo = { id: 'GEN', name: 'General Ward', icon: Users, color: '#f59e0b' };
+
+  // --- 1. FETCH LATEST SURGE STATUS ON MOUNT ---
+  const fetchSurgeStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:5001/api/get-history?type=SurgeUpdate&ward=GEN'); 
+      if (response.ok) {
+        const data = await response.json();
+        setLatestSurge({
+            count: data.count,
+            lastUpdated: data.lastUpdated,
+            loading: false
+        });
+      } else {
+        setLatestSurge(prev => ({ ...prev, loading: false }));
+      }
+    } catch (error) {
+      console.error("Failed to load surge status");
+      setLatestSurge(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    fetchSurgeStatus();
+  }, []);
+
+  // --- SAVE SURGE DATA ---
+  const saveSurgeData = async (count) => {
+    const payload = {
+      Date: new Date().toISOString().slice(0, 10),
+      Ward_ID: wardInfo.id,
+      Ward_Name: wardInfo.name,
+      Surge_Capacity_Available: count,
+      EventType: 'SurgeUpdate'
+    };
+
+    try {
+      const response = await fetch('http://localhost:5001/api/add-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        setLatestSurge({
+          count: count,
+          lastUpdated: new Date().toISOString().slice(0, 10),
+          loading: false
+        });
+        
+        if (count > 0) {
+            alert("✅ Surge Beds Updated Successfully!");
+        }
+      } else {
+        alert("❌ Error saving data.");
+      }
+    } catch (error) {
+      alert("❌ Connection failed.");
+    }
+  };
 
   return (
     <div style={{ padding: 40, fontFamily: 'Inter, sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
       
       {/* --- HEADER --- */}
       <div style={{ marginBottom: 40 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', margin: 0 }}>Daily Census Entry</h1>
-        <p style={{ color: '#64748b', marginTop: 8 }}>Input daily shift data for the General Ward.</p>
+        <h1 style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', margin: 0 }}>Daily Census & Surge Entry</h1>
+        <p style={{ color: '#64748b', marginTop: 8 }}>Input daily shift data and manage surge capacity for General Ward.</p>
       </div>
 
-      {/* --- WARD CARDS GRID --- */}
+      {/* --- CARDS GRID --- */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-        {wards.map((ward) => {
-          const Icon = ward.icon;
-          
-          return (
-            <div 
-              key={ward.id} 
-              onClick={() => setSelectedWard(ward)}
-              style={{ 
-                background: 'white', 
-                borderRadius: 20, 
-                padding: 24, 
-                border: '1px solid #e2e8f0', 
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
-                cursor: 'pointer', 
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)'; }}
-            >
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6, background: ward.color }}></div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-                <div style={{ background: `${ward.color}15`, padding: 12, borderRadius: 12 }}>
-                  <Icon size={28} color={ward.color} />
-                </div>
-              </div>
-
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{ward.name}</h3>
-              <p style={{ fontSize: 13, color: '#64748b' }}>Click to Add Record</p>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>
-                <span>Manual Entry</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: ward.color }}>
-                  Open Form <ChevronRight size={14} />
-                </span>
-              </div>
+        
+        {/* CARD 1: STANDARD CENSUS (GENERAL WARD) */}
+        <div 
+          onClick={() => setSelectedWard(wardInfo)}
+          style={{ 
+            background: 'white', 
+            borderRadius: 20, 
+            padding: 24, 
+            border: '1px solid #e2e8f0', 
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
+            cursor: 'pointer', 
+            transition: 'transform 0.2s',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6, background: wardInfo.color }}></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div style={{ background: `${wardInfo.color}15`, padding: 12, borderRadius: 12 }}>
+              <Users size={28} color={wardInfo.color} />
             </div>
-          );
-        })}
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{wardInfo.name}</h3>
+          <p style={{ fontSize: 13, color: '#64748b' }}>Daily Admissions & Discharges</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>
+            <span>Census Entry</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: wardInfo.color }}>
+              Open Form <ChevronRight size={14} />
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 2: SURGE CAPACITY (CLICKABLE) */}
+        <div 
+          onClick={() => setShowSurgeModal(true)}
+          style={{ 
+            background: 'white', 
+            borderRadius: 20, 
+            padding: 24, 
+            border: latestSurge.count > 0 ? '1px solid #f59e0b' : '1px solid #e2e8f0', 
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
+            position: 'relative',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            transition: 'transform 0.2s'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6, background: '#f59e0b' }}></div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div style={{ background: '#fffbeb', padding: 12, borderRadius: 12 }}>
+              <Tent size={28} color="#f59e0b" />
+            </div>
+            
+            <div style={{ textAlign: 'right' }}>
+                <span style={{ 
+                    fontSize: 12, 
+                    fontWeight: 700, 
+                    padding: '4px 10px', 
+                    borderRadius: 99, 
+                    background: latestSurge.count > 0 ? '#fef3c7' : '#f1f5f9',
+                    color: latestSurge.count > 0 ? '#d97706' : '#64748b',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                }}>
+                    {latestSurge.count > 0 ? <CheckCircle2 size={12}/> : <AlertCircle size={12}/>}
+                    {latestSurge.count > 0 ? `${latestSurge.count} Beds Active` : 'Disabled'}
+                </span>
+                {latestSurge.lastUpdated && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                        Updated: {latestSurge.lastUpdated}
+                    </p>
+                )}
+            </div>
+          </div>
+
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>Surge Capacity</h3>
+          <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>Can you arrange extra surge beds?</p>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24, fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>
+            <span>Update Status</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f59e0b' }}>
+              Open Form <ChevronRight size={14} />
+            </span>
+          </div>
+
+        </div>
+
       </div>
 
-      {/* --- POPUP FORM MODAL --- */}
+      {/* --- MODAL 1: DAILY CENSUS INPUT --- */}
       {selectedWard && (
         <DailyInputModal ward={selectedWard} onClose={() => setSelectedWard(null)} />
+      )}
+
+      {/* --- MODAL 2: SURGE CAPACITY INPUT --- */}
+      {showSurgeModal && (
+        <SurgeCapacityModal 
+          ward={wardInfo} 
+          currentCount={latestSurge.count}
+          onSave={saveSurgeData}
+          onClose={() => setShowSurgeModal(false)} 
+        />
       )}
 
     </div>
   );
 };
 
-// --- SUB-COMPONENT: INPUT FORM MODAL ---
+// ==============================================
+// SUB-COMPONENT: SURGE CAPACITY MODAL (WITH CUSTOM CONFIRMATION)
+// ==============================================
+const SurgeCapacityModal = ({ ward, currentCount, onSave, onClose }) => {
+  const [loading, setLoading] = useState(false);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [surgeCount, setSurgeCount] = useState(currentCount || 0);
+  
+  // New state for custom confirmation dialog
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const countValue = parseInt(surgeCount) || 0;
+
+    // 1. If 0 is entered, STOP and show custom confirmation
+    if (countValue === 0) {
+        setShowConfirm(true);
+        return; 
+    }
+
+    // 2. If > 0, save immediately
+    await executeSave(countValue);
+  };
+
+  // Helper to actually save data
+  const executeSave = async (count) => {
+    setLoading(true);
+    await onSave(count);
+    setLoading(false);
+    setShowConfirm(false); // Close confirm if open
+    onClose(); // Close main modal
+  };
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+      
+      {/* --- MAIN MODAL --- */}
+      <div style={{ background: 'white', width: '90%', maxWidth: 450, borderRadius: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden', position: 'relative' }}>
+        
+        {/* Header */}
+        <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0', background: '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#b45309', margin: 0 }}>Surge Beds</h2>
+            <p style={{ margin: '4px 0 0', color: '#d97706', fontSize: 13 }}>{ward.name}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'white', border: '1px solid #fcd34d', borderRadius: 12, padding: 8, cursor: 'pointer', color: '#b45309' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ padding: 32 }}>
+          
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Date of Arrangement</label>
+            <div style={{ position: 'relative' }}>
+                <Calendar size={16} style={{ position: 'absolute', top: 12, left: 12, color: '#94a3b8' }} />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '100%', padding: '10px 10px 10px 40px', borderRadius: 8, border: '1px solid #cbd5e1', outline: 'none', color: '#1e293b', fontWeight: 500 }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 32 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+              How many extra beds can be arranged?
+            </label>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>Set to 0 to disable surge capacity.</p>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc', padding: 12, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+              <Tent size={24} color="#f59e0b" />
+              <input 
+                type="number" 
+                min="0"
+                value={surgeCount}
+                onChange={(e) => setSurgeCount(e.target.value)}
+                placeholder="0"
+                style={{ flex: 1, fontSize: 18, fontWeight: 600, border: 'none', background: 'transparent', outline: 'none', color: '#0f172a' }}
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: '#f59e0b', color: 'white', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+          >
+            {loading ? <Loader className="animate-spin" size={20} /> : <Save size={20} />}
+            {loading ? 'Saving...' : 'Update Capacity'}
+          </button>
+
+        </form>
+
+        {/* --- CUSTOM CONFIRMATION OVERLAY --- */}
+        {showConfirm && (
+            <div style={{ 
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+                background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(2px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 
+            }}>
+                <div style={{ 
+                    background: 'white', padding: 24, borderRadius: 20, 
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', 
+                    textAlign: 'center', width: '85%', border: '1px solid #e2e8f0'
+                }}>
+                    <div style={{ background: '#fee2e2', width: 48, height: 48, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <AlertCircle size={24} color="#ef4444" />
+                    </div>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1e293b', marginBottom: 8 }}>Disable Surge?</h3>
+                    <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24, lineHeight: 1.5 }}>
+                        Are you sure you don't have space for any surge beds? This will set capacity to 0.
+                    </p>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <button 
+                            onClick={() => setShowConfirm(false)} 
+                            style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #cbd5e1', background: 'white', color: '#475569', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={() => executeSave(0)} 
+                            style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#ef4444', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                            Yes, Disable It
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+// ==============================================
+// SUB-COMPONENT: DAILY INPUT MODAL
+// ==============================================
 const DailyInputModal = ({ ward, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [fetchingCapacity, setFetchingCapacity] = useState(true);
@@ -144,12 +411,10 @@ const DailyInputModal = ({ ward, onClose }) => {
         Ward_ID: ward.id,       
         Ward_Name: ward.name,
         
-        // Standard keys for General Ward
         Admissions: data.admissions,
         Discharges: data.discharges,
         OccupiedBeds: data.occupied,
         BedCapacity: wardCapacity,
-        
         transfersOut: data.transfersOut,       
         deaths: data.deaths,                   
         Weather: 'Sunny',       
@@ -159,8 +424,6 @@ const DailyInputModal = ({ ward, onClose }) => {
         PublicTransportStatus: 'Normal',
         OutbreakAlert: 'No'
       };
-
-      console.log("📤 Sending Payload:", payload);
 
       const response = await fetch('http://localhost:5001/api/add-record', {
         method: 'POST',
@@ -183,16 +446,8 @@ const DailyInputModal = ({ ward, onClose }) => {
   };
 
   return (
-    <div style={{ 
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 
-    }}>
-      <div style={{ 
-        background: 'white', width: '90%', maxWidth: 600, 
-        borderRadius: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', 
-        display: 'flex', flexDirection: 'column', overflow: 'hidden'
-      }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div style={{ background: 'white', width: '90%', maxWidth: 600, borderRadius: 24, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
         {/* Modal Header */}
         <div style={{ padding: '24px 32px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
@@ -200,8 +455,6 @@ const DailyInputModal = ({ ward, onClose }) => {
             <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0 }}>{ward.name}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <p style={{ margin: 0, color: '#64748b', fontSize: 14 }}>Daily Data Entry</p>
-              
-              {/* Capacity Badge */}
               {!fetchingCapacity && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', background: '#e2e8f0', padding: '2px 8px', borderRadius: 99 }}>
                   Capacity: {wardCapacity} Beds
@@ -262,7 +515,6 @@ const DailyInputModal = ({ ward, onClose }) => {
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
                         Current Occupied Beds
                       </label>
-                      {/* Warning if Occupancy > Capacity */}
                       {data.occupied > wardCapacity && (
                         <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Info size={12} /> Over Capacity!
@@ -291,7 +543,7 @@ const DailyInputModal = ({ ward, onClose }) => {
               style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: '#0f172a', color: 'white', fontWeight: 600, cursor: (loading || fetchingCapacity) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               {loading ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
-              {loading ? 'Saving...' : (fetchingCapacity ? 'Loading Data...' : 'Submit Record')}
+              {loading ? 'Saving...' : 'Submit Record'}
             </button>
           </div>
 
