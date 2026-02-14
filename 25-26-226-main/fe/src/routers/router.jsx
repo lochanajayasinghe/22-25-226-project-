@@ -71,6 +71,16 @@ import Ward_A_NurseLayout from "../Pages/Ward_A_Nurse/Ward_A_NurseLayout";
 import Ward_A_NurseDailyInput from "../Pages/Ward_A_Nurse/Ward_A_NurseDailyInput";/////
 import Ward_A_NurseInventory from "../Pages/Ward_A_Nurse/Ward_A_NurseInventory";//////  
 
+import Ward_B_NurseDashboard from "../Pages/Ward_B_Nurse/Ward_B_NurseDashboard";
+import Ward_B_NurseLayout from "../Pages/Ward_B_Nurse/Ward_B_NurseLayout";  
+import Ward_B_NurseDailyInput from "../Pages/Ward_B_Nurse/Ward_B_NurseDailyInput";/////
+import Ward_B_NurseInventory from "../Pages/Ward_B_Nurse/Ward_B_NurseInventory";////// 
+
+import Ward_G_NurseDashboard from "../Pages/Ward_G_Nurse/Ward_G_NurseDashboard";
+import Ward_G_NurseLayout from "../Pages/Ward_G_Nurse/Ward_G_NurseLayout";  
+import Ward_G_NurseDailyInput from "../Pages/Ward_G_Nurse/Ward_G_NurseDailyInput";/////
+import Ward_G_NurseInventory from "../Pages/Ward_G_Nurse/Ward_G_NurseInventory";////// 
+
 import MethaRoleLayout from "../Pages/MethaRole/MethaRoleLayout";
 import MethaRoleDashboard from "../Pages/MethaRole/MethaRoleDashboard";
 import IllnessAlerts from "../Pages/MethaRole/IllnessAlerts";
@@ -214,6 +224,28 @@ const router = createBrowserRouter([
       { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseDashboard", element:<Ward_A_NurseDashboard/> },///////
       { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseDailyInput", element:<Ward_A_NurseDailyInput/> },/////
       { path:"/Ward_A_Nurse/dashboard/Ward_A_NurseInventory", element:<Ward_A_NurseInventory/> },
+      
+    ]
+  },
+
+  {
+    path:"/Ward_B_Nurse/dashboard",
+    element:<Ward_B_NurseLayout/>,
+    children:[
+      { path:"/Ward_B_Nurse/dashboard/Ward_B_NurseDashboard", element:<Ward_B_NurseDashboard/> },///////
+      { path:"/Ward_B_Nurse/dashboard/Ward_B_NurseDailyInput", element:<Ward_B_NurseDailyInput/> },/////
+      { path:"/Ward_B_Nurse/dashboard/Ward_B_NurseInventory", element:<Ward_B_NurseInventory/> },
+      
+    ]
+  },
+
+  {
+    path:"/Ward_G_Nurse/dashboard",
+    element:<Ward_G_NurseLayout/>,
+    children:[
+      { path:"/Ward_G_Nurse/dashboard/Ward_G_NurseDashboard", element:<Ward_G_NurseDashboard/> },///////
+      { path:"/Ward_G_Nurse/dashboard/Ward_G_NurseDailyInput", element:<Ward_G_NurseDailyInput/> },/////
+      { path:"/Ward_G_Nurse/dashboard/Ward_G_NurseInventory", element:<Ward_G_NurseInventory/> },
       
     ]
   },
