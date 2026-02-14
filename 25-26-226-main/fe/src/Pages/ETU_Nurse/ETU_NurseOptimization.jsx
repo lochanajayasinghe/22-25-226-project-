@@ -9,7 +9,8 @@ import {
   Truck, 
   LogOut, 
   Users,
-  LayoutDashboard
+  LayoutDashboard,
+  Tent // Added for Surge Icon
 } from 'lucide-react';
 
 const ETU_NurseOptimization = () => {
@@ -61,6 +62,9 @@ const ETU_NurseOptimization = () => {
   const forecastPeriod = data.forecast_table_rows?.[0]?.period || "Upcoming Shift";
   const totalTransfers = (data.action_plan_transfers?.ward_a || 0) + (data.action_plan_transfers?.ward_b || 0) + (data.action_plan_transfers?.general || 0);
   
+  // Safe access to breakdown (defaults to 0 if missing)
+  const surgeBreakdown = data.action_plan_surge_breakdown || { etu: 0, ward_a: 0, ward_b: 0, general: 0 };
+
   // Colors for dynamic status
   const isCritical = data.system_status === 'CRITICAL';
   const statusColor = isCritical ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200';
@@ -147,7 +151,7 @@ const ETU_NurseOptimization = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* STEP 1: TRANSFERS (The most complex part) */}
+        {/* STEP 1: TRANSFERS */}
         <div className={`rounded-2xl p-6 border-2 relative ${totalTransfers > 0 ? 'bg-white border-blue-100 shadow-md' : 'bg-slate-50 border-slate-200 border-dashed opacity-70'}`}>
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -182,24 +186,45 @@ const ETU_NurseOptimization = () => {
           </div>
         </div>
 
-        {/* STEP 2: SURGE (Warning) */}
+        {/* STEP 2: SURGE CAPACITY (UPDATED TO SHOW BREAKDOWN) */}
         <div className={`rounded-2xl p-6 border-2 relative ${data.action_plan_surge > 0 ? 'bg-orange-50 border-orange-200 shadow-md' : 'bg-slate-50 border-slate-200 border-dashed opacity-60'}`}>
           <div className="flex justify-between items-start mb-6">
             <div>
               <div className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-1 rounded uppercase tracking-wider inline-block mb-2">Step 2</div>
               <h4 className="text-lg font-bold text-slate-800">Surge Capacity</h4>
-              <p className="text-sm text-slate-500">Open corridor beds</p>
+              <p className="text-sm text-slate-500">Activate temporary beds</p>
             </div>
             <div className={`p-3 rounded-xl ${data.action_plan_surge > 0 ? 'bg-orange-200 text-orange-700' : 'bg-slate-200 text-slate-400'}`}>
-              <Activity size={24} />
+              <Tent size={24} />
             </div>
           </div>
           
-          <div className="flex flex-col items-center justify-center h-40">
-            <span className={`text-6xl font-black ${data.action_plan_surge > 0 ? 'text-orange-500' : 'text-slate-300'}`}>
+          {/* New Breakdown Table for Surge Beds */}
+          <div className="space-y-2 mb-4">
+             {/* Only show if count > 0 for cleaner UI, or show all if needed */}
+             <div className="flex justify-between text-sm p-2 bg-white/60 rounded border border-orange-100">
+                <span className="text-slate-600">ETU Corridors</span>
+                <span className="font-bold text-orange-700">{surgeBreakdown.etu}</span>
+             </div>
+             <div className="flex justify-between text-sm p-2 bg-white/60 rounded border border-orange-100">
+                <span className="text-slate-600">Ward A (Med)</span>
+                <span className="font-bold text-orange-700">{surgeBreakdown.ward_a}</span>
+             </div>
+             <div className="flex justify-between text-sm p-2 bg-white/60 rounded border border-orange-100">
+                <span className="text-slate-600">Ward B (Surg)</span>
+                <span className="font-bold text-orange-700">{surgeBreakdown.ward_b}</span>
+             </div>
+             <div className="flex justify-between text-sm p-2 bg-white/60 rounded border border-orange-100">
+                <span className="text-slate-600">General Ward</span>
+                <span className="font-bold text-orange-700">{surgeBreakdown.general}</span>
+             </div>
+          </div>
+
+          <div className="pt-4 border-t border-orange-200/50 flex justify-between items-center">
+            <span className="text-sm font-bold text-slate-400 uppercase">Total Surge</span>
+            <span className={`text-4xl font-black ${data.action_plan_surge > 0 ? 'text-orange-500' : 'text-slate-300'}`}>
               {data.action_plan_surge}
             </span>
-            <span className="text-sm font-bold text-slate-400 uppercase mt-2">Beds Required</span>
           </div>
         </div>
 
