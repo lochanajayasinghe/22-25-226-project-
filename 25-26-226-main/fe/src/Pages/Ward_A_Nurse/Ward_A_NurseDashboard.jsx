@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { CloudRain, AlertTriangle, Thermometer, Wind, BellRing, ArrowRight, Loader } from 'lucide-react';
+import { 
+  CloudRain, 
+  AlertTriangle, 
+  BellRing, 
+  ArrowRight, 
+  Loader, 
+  BedDouble, 
+  CheckCircle2, 
+  Clock 
+} from 'lucide-react';
 
 const Ward_A_NurseDashboard = () => {
-  // 1. Local Ward Data State (Static for now, can be connected to DB later)
+  // --- STATE MANAGEMENT ---
   const [wardData, setWardData] = useState({
-    capacity: 40,
-    occupancy: 32,
-    discharges: 4,
-    deaths: 0
+    capacity: 0,   
+    occupancy: 0, 
+    available: 0   
   });
 
-  // 2. AI Optimization Data State
-  const [incomingCount, setIncomingCount] = useState(0);
+  const [incomingCount, setIncomingCount] = useState(0); 
   const [loadingAI, setLoadingAI] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  // 3. External Alerts (Mock Data)
+  // --- MOCK ALERTS ---
   const alerts = {
     weather: {
       condition: "Heavy Rain",
@@ -28,151 +36,275 @@ const Ward_A_NurseDashboard = () => {
     }
   };
 
-  // --- FETCH REAL AI PLAN ---
+  // --- 1. FETCH WARD REAL-TIME STATUS (New Endpoint) ---
+  useEffect(() => {
+    const fetchWardStatus = async () => {
+      try {
+        setLoadingStats(true);
+        // Calls the new Python endpoint that uses get_ward_realtime_free_space
+        const response = await fetch('http://localhost:5001/api/ward-status/WARD-A');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setWardData({
+            capacity: data.capacity,
+            available: data.available, // Comes directly from backend logic (Capacity - Occupied)
+            occupancy: data.occupied
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch ward stats:", error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchWardStatus();
+  }, []);
+
+  // --- 2. FETCH AI OPTIMIZATION PLAN ---
   useEffect(() => {
     const fetchAIPlan = async () => {
       try {
         setLoadingAI(true);
-        // Connect to your Python Backend
         const res = await fetch('http://localhost:5001/predict'); 
         if (res.ok) {
           const data = await res.json();
-          // Extract specifically the transfer count for Ward A
-          // Backend sends: "action_plan_transfers": { "ward_a": X, ... }
           if (data.action_plan_transfers) {
             setIncomingCount(data.action_plan_transfers.ward_a || 0);
           }
         }
       } catch (err) {
-        console.error("Failed to fetch AI Optimization Plan", err);
+        console.error("Failed to fetch AI Plan", err);
       } finally {
         setLoadingAI(false);
       }
     };
-
     fetchAIPlan();
   }, []);
 
-  // Availability Calculation
-  const availableBeds = wardData.capacity - (wardData.occupancy - wardData.discharges);
-  
-  // Is the incoming load manageable?
-  const isCritical = incomingCount > availableBeds;
+  // Calculations
+  const isCritical = incomingCount > wardData.available;
+  const occupancyRate = wardData.capacity > 0 
+    ? Math.round((wardData.occupancy / wardData.capacity) * 100) 
+    : 0;
+
+  // --- STYLES ---
+  const styles = {
+    container: {
+      padding: '40px',
+      maxWidth: '1280px',
+      margin: '0 auto',
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+      color: '#1e293b',
+      background: '#f8fafc',
+      minHeight: '100vh',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'end',
+      marginBottom: '40px',
+    },
+    title: { fontSize: '36px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' },
+    subtitle: { color: '#64748b', fontSize: '15px', fontWeight: '500', marginTop: '6px' },
+    mainGrid: { display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px' },
+    colLeft: { gridColumn: 'span 8' }, 
+    colRight: { gridColumn: 'span 4' },
+    card: {
+      background: 'white',
+      borderRadius: '24px',
+      padding: '32px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.05)',
+      border: '1px solid #f1f5f9',
+      marginBottom: '24px',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+    notificationCard: {
+      background: incomingCount > 0 ? 'linear-gradient(135deg, #fff7ed 0%, #fff 100%)' : 'white',
+      borderLeft: incomingCount > 0 ? '6px solid #f97316' : '6px solid #10b981',
+    },
+    actionBtn: {
+      padding: '14px 24px',
+      borderRadius: '12px',
+      border: 'none',
+      fontWeight: '600',
+      fontSize: '15px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      transition: 'all 0.2s ease',
+    },
+    statGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' },
+    statBox: { background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' },
+    statLabel: { fontSize: '13px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' },
+    statValue: { fontSize: '32px', fontWeight: '800', color: '#0f172a', marginTop: '8px' },
+  };
 
   return (
-    <div style={{ padding: 28, maxWidth: 1200, margin: '24px auto', color: '#0f172a', fontFamily: 'Inter, sans-serif' }}>
+    <div style={styles.container}>
       
       {/* HEADER */}
-      <header style={{ marginBottom: 32, borderBottom: '1px solid #e2e8f0', paddingBottom: 16 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, color: '#1e293b' }}>Ward A Portal</h1>
-        <p style={{ color: '#64748b', marginTop: 4, fontWeight: 500 }}>Live Resource Management System</p>
+      <header style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Ward A Command Center</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+            <p style={styles.subtitle}>System Online • AI Optimization Active</p>
+          </div>
+        </div>
+        
+        {/* Occupancy Indicator */}
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>Live Occupancy</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: '24px', fontWeight: '800', color: occupancyRate > 90 ? '#ef4444' : '#0f172a' }}>
+              {loadingStats ? '...' : `${occupancyRate}%`}
+            </span>
+            <div style={{ width: '100px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${occupancyRate}%`, height: '100%', background: occupancyRate > 90 ? '#ef4444' : '#3b82f6', borderRadius: '4px' }}></div>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24 }}>
-
-        {/* 1. PRE-PREPARE NOTIFICATION CARD (AI DRIVEN) */}
-        <div style={{ 
-          background: '#fff', 
-          padding: 24, 
-          borderRadius: 16, 
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)', 
-          borderLeft: `6px solid ${incomingCount > 0 ? '#f97316' : '#10b981'}`, 
-          border: '1px solid #e2e8f0' 
-        }}>
+      <div style={styles.mainGrid}>
+        
+        {/* --- LEFT COLUMN --- */}
+        <div style={{ ...styles.colLeft, gridColumn: window.innerWidth < 1024 ? 'span 12' : 'span 8' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BellRing size={20} />
-              {incomingCount > 0 ? "Incoming Transfer Request" : "Status Normal"}
-            </h2>
-            
-            {incomingCount > 0 && (
-              <span style={{ background: '#ffedd5', color: '#c2410c', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                ACTION REQUIRED
-              </span>
+          {/* AI NOTIFICATION */}
+          <div style={{ ...styles.card, ...styles.notificationCard }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <BellRing size={22} color={incomingCount > 0 ? '#ea580c' : '#10b981'} />
+                  {incomingCount > 0 ? "Optimization Plan: Incoming Transfers" : "Optimization Status: Clear"}
+                </h2>
+                <p style={{ color: '#64748b', marginTop: '6px' }}>Real-time bed allocation requests from ETU via AI Engine.</p>
+              </div>
+              {incomingCount > 0 && (
+                <span style={{ background: '#fff7ed', color: '#c2410c', padding: '6px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: '700', border: '1px solid #ffedd5' }}>
+                  ACTION REQUIRED
+                </span>
+              )}
+            </div>
+
+            {loadingAI ? (
+              <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#64748b' }}>
+                <Loader className="animate-spin" size={32} style={{ marginBottom: '16px', color: '#3b82f6' }} />
+                <p>Analyzing Patient Flow...</p>
+              </div>
+            ) : (
+              <>
+                {incomingCount > 0 ? (
+                  <div style={{ display: 'flex', gap: '32px', alignItems: 'center', background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #fed7aa', boxShadow: '0 4px 6px -1px rgba(249, 115, 22, 0.1)' }}>
+                    <div style={{ textAlign: 'center', paddingRight: '32px', borderRight: '1px solid #e2e8f0' }}>
+                      <p style={{ fontSize: '13px', fontWeight: '700', color: '#9a3412', textTransform: 'uppercase' }}>Incoming</p>
+                      <p style={{ fontSize: '48px', fontWeight: '800', color: '#ea580c', lineHeight: '1', margin: '8px 0' }}>{incomingCount}</p>
+                      <p style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Patients</p>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <Clock size={16} color="#ea580c" />
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#c2410c' }}>ETA: Less than 30 minutes</span>
+                      </div>
+                      <p style={{ fontSize: '15px', color: '#334155', lineHeight: '1.5' }}>
+                        AI has identified <strong>{incomingCount} stable patients</strong> in ETU suitable for Ward A. 
+                        Please prepare beds immediately.
+                      </p>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                        <button disabled={isCritical} style={{ ...styles.actionBtn, background: isCritical ? '#94a3b8' : '#0f172a', color: 'white', flex: 1 }}>
+                          {isCritical ? 'Insufficient Capacity' : 'Accept & Prepare Beds'} <ArrowRight size={18} />
+                        </button>
+                        <button style={{ ...styles.actionBtn, background: 'white', border: '1px solid #cbd5e1', color: '#475569' }}>Defer</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: '#f0fdf4', padding: '32px', borderRadius: '16px', border: '1px solid #dcfce7', textAlign: 'center' }}>
+                    <div style={{ background: '#dcfce7', width: '48px', height: '48px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <CheckCircle2 size={24} color="#16a34a" />
+                    </div>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#166534', margin: 0 }}>No Pending Transfers</h3>
+                    <p style={{ color: '#15803d', marginTop: '8px' }}>Ward A is optimized. No immediate transfers required from ETU.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {loadingAI ? (
-            <div style={{ padding: 20, textAlign: 'center', color: '#64748b' }}>
-              <Loader className="animate-spin" size={24} style={{ margin: '0 auto 8px' }}/>
-              Checking ETU Status...
-            </div>
-          ) : (
-            <>
-              {incomingCount > 0 ? (
-                // --- ACTIVE REQUEST ---
-                <div style={{ background: '#fff7ed', padding: 16, borderRadius: 12, marginBottom: 20 }}>
-                  <p style={{ margin: 0, fontSize: 12, color: '#9a3412', fontWeight: 700, textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>FROM: ETU (AI OPTIMIZED)</span>
-                    <span>ETA: &lt; 30 MINS</span>
-                  </p>
-                  
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '12px 0' }}>
-                    <span style={{ fontSize: 42, fontWeight: 800, color: '#ea580c', lineHeight: 1 }}>{incomingCount}</span>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: '#9a3412' }}>Patient(s) Allocated</span>
+          {/* 2. WARD STATS OVERVIEW */}
+          <div style={styles.card}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Ward Statistics</h3>
+            
+            {loadingStats ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Loading Bed Data...</div>
+            ) : (
+              <div style={styles.statGrid}>
+                {/* Total Capacity */}
+                <div style={styles.statBox}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <span style={styles.statLabel}>Total Capacity</span>
+                    <div style={{ background: '#eff6ff', padding: '6px', borderRadius: '8px' }}>
+                      <BedDouble size={20} color="#3b82f6" />
+                    </div>
                   </div>
-                  
-                  <p style={{ margin: 0, fontSize: 13, color: '#c2410c', fontStyle: 'italic' }}>
-                    "AI has identified {incomingCount} stable patients suitable for Ward A based on current ETU load."
+                  <p style={styles.statValue}>{wardData.capacity}</p>
+                  <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Functional Beds Only</p>
+                </div>
+                
+                {/* Available Beds (Real-Time from DB Logic) */}
+                <div style={styles.statBox}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <span style={styles.statLabel}>Available Beds</span>
+                    <div style={{ background: '#dcfce7', padding: '4px 8px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a' }}>Live</span>
+                    </div>
+                  </div>
+                  <p style={{ ...styles.statValue, color: wardData.available < 5 ? '#dc2626' : '#16a34a' }}>
+                    {wardData.available}
                   </p>
+                  <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Free & Ready (Cap - Occ)</p>
                 </div>
-              ) : (
-                // --- NO REQUESTS ---
-                <div style={{ background: '#ecfdf5', padding: 20, borderRadius: 12, marginBottom: 20, textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontWeight: 600, color: '#047857' }}>No incoming transfers from ETU.</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#059669' }}>Optimization engine is monitoring load.</p>
-                </div>
-              )}
-
-              {/* ACTION BUTTONS (Only if requests exist) */}
-              {incomingCount > 0 && (
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button
-                    disabled={isCritical}
-                    style={{ flex: 2, background: !isCritical ? '#059669' : '#94a3b8', color: '#fff', padding: '12px', borderRadius: 8, border: 'none', fontWeight: 700, cursor: !isCritical ? 'pointer' : 'not-allowed', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                  >
-                    {!isCritical ? 'Prepare Beds' : 'Insufficient Capacity'} <ArrowRight size={16} />
-                  </button>
-                  <button style={{ flex: 1, border: '2px solid #e2e8f0', padding: '12px', borderRadius: 8, fontWeight: 700, background: '#fff', color: '#64748b', cursor: 'pointer' }}>
-                    Deny
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 2. EXTERNAL FACTORS & ALERTS */}
-        <div style={{ display: 'grid', gap: 16 }}>
-          
-          {/* Weather Alert */}
-          <div style={{ background: '#eff6ff', padding: 20, borderRadius: 16, border: '1px solid #dbeafe', display: 'flex', alignItems: 'start', gap: 16 }}>
-            <div style={{ background: '#3b82f6', padding: 10, borderRadius: 10, color: 'white' }}>
-              <CloudRain size={24} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1e40af', margin: '0 0 4px 0' }}>Weather Impact</h3>
-              <p style={{ fontSize: 20, fontWeight: 800, color: '#1e3a8a', margin: 0 }}>{alerts.weather.condition}</p>
-              <p style={{ fontSize: 13, color: '#3b82f6', marginTop: 4, lineHeight: '1.4' }}>{alerts.weather.impact}</p>
-            </div>
-          </div>
-
-          {/* Disease Outbreak Alert */}
-          <div style={{ background: '#fef2f2', padding: 20, borderRadius: 16, border: '1px solid #fee2e2', display: 'flex', alignItems: 'start', gap: 16 }}>
-            <div style={{ background: '#ef4444', padding: 10, borderRadius: 10, color: 'white' }}>
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#991b1b', margin: '0 0 4px 0' }}>Outbreak Alert</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <p style={{ fontSize: 18, fontWeight: 800, color: '#7f1d1d', margin: 0 }}>{alerts.outbreak.disease}</p>
-                <span style={{ fontSize: 11, fontWeight: 700, background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: 12, border: '1px solid #fecaca' }}>{alerts.outbreak.status}</span>
+        {/* --- RIGHT COLUMN (Risk Factors) --- */}
+        <div style={{ ...styles.colRight, gridColumn: window.innerWidth < 1024 ? 'span 12' : 'span 4' }}>
+          <div style={styles.card}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '20px' }}>External Risk Factors</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#eff6ff', padding: '20px', borderRadius: '16px', border: '1px solid #dbeafe' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ background: '#3b82f6', padding: '8px', borderRadius: '10px', color: 'white' }}><CloudRain size={20} /></div>
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: '600', color: '#60a5fa' }}>Weather Impact</p>
+                    <p style={{ fontSize: '16px', fontWeight: '800', color: '#1e40af' }}>{alerts.weather.condition}</p>
+                  </div>
+                </div>
+                <p style={{ fontSize: '13px', color: '#334155', lineHeight: '1.5' }}>{alerts.weather.impact}</p>
               </div>
-              <p style={{ fontSize: 13, color: '#b91c1c', marginTop: 4, lineHeight: '1.4' }}>{alerts.outbreak.note}</p>
+              <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '16px', border: '1px solid #fee2e2' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ background: '#ef4444', padding: '8px', borderRadius: '10px', color: 'white' }}><AlertTriangle size={20} /></div>
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: '600', color: '#f87171' }}>Outbreak Alert</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <p style={{ fontSize: '16px', fontWeight: '800', color: '#991b1b' }}>{alerts.outbreak.disease}</p>
+                      <span style={{ fontSize: '10px', fontWeight: '700', background: 'white', color: '#ef4444', padding: '2px 6px', borderRadius: '6px', border: '1px solid #fecaca' }}>{alerts.outbreak.status.toUpperCase()}</span>
+                    </div>
+                  </div>
+                </div>
+                <p style={{ fontSize: '13px', color: '#7f1d1d', lineHeight: '1.5' }}>{alerts.outbreak.note}</p>
+              </div>
             </div>
           </div>
-
         </div>
 
       </div>
