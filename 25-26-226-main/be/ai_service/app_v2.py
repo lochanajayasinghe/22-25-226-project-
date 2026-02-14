@@ -771,6 +771,23 @@ def update_bed_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- ROUTE: GET WARD STATUS (NEW ADDITION) ---
+@app.route('/api/ward-status/<ward_id>', methods=['GET'])
+def get_ward_status_api(ward_id):
+    # Determine the correct key for occupancy
+    # For ETU it's 'ETU_OccupiedBeds', for others it's 'OccupiedBeds'
+    key = "ETU_OccupiedBeds" if ward_id == "ETU" else "OccupiedBeds"
+    
+    # Use the existing Python helper logic
+    free_space, capacity = get_ward_realtime_free_space(ward_id, key)
+    
+    return jsonify({
+        "ward_id": ward_id,
+        "capacity": capacity,
+        "available": free_space,
+        "occupied": capacity - free_space
+    }), 200
+
 # --- ROUTE: TREND DATA FOR CHART (CORRECTED "LATEST 10") ---
 @app.route('/api/get-trend-data', methods=['GET'])
 def get_trend_data():
