@@ -10,7 +10,6 @@ import {
   Search,
   Plus,
   Wrench,
-  Save,
   Loader,
   Edit2,
   AlertTriangle
@@ -21,9 +20,7 @@ const Ward_A_NurseInventory = () => {
   const [allBeds, setAllBeds] = useState([]); // Stores DB Data
   const [loading, setLoading] = useState(true);
 
-  // --- 1. CONFIGURATION: WARD DEFINITIONS ---
-  // We only define the static "Look and Feel" here. 
-  // The *Counts* will be calculated from the DB data.
+  // --- 1. CONFIGURATION: ALL WARDS ---
   const wardConfig = [
     { id: 'ETU', name: 'Emergency Treatment Unit', icon: Activity, color: '#ef4444' },
     { id: 'WARD-A', name: 'Ward A (Medical)', icon: Stethoscope, color: '#3b82f6' },
@@ -73,12 +70,10 @@ const Ward_A_NurseInventory = () => {
             const Icon = ward.icon;
             
             // --- 3. DYNAMIC CALCULATION ---
-            // Filter the global DB list for this specific ward
             const wardBeds = allBeds.filter(bed => bed.ward_id === ward.id);
             const totalCount = wardBeds.length;
             const functionalCount = wardBeds.filter(bed => bed.status === 'Functional').length;
             
-            // Calculate percentage (Prevent NaN if total is 0)
             const percentFunctional = totalCount > 0 
               ? Math.round((functionalCount / totalCount) * 100) 
               : 0;
@@ -86,7 +81,7 @@ const Ward_A_NurseInventory = () => {
             return (
               <div 
                 key={ward.id} 
-                onClick={() => setSelectedWard({ ...ward, beds: wardBeds })} // Pass the REAL beds to the modal
+                onClick={() => setSelectedWard({ ...ward, beds: wardBeds })} 
                 style={{ 
                   background: 'white', 
                   borderRadius: 20, 
@@ -136,9 +131,9 @@ const Ward_A_NurseInventory = () => {
       {/* --- BED DETAILS MODAL --- */}
       {selectedWard && (
         <BedDetailsModal 
-          ward={selectedWard} // This now contains the REAL beds
+          ward={selectedWard} 
           onClose={() => setSelectedWard(null)} 
-          onUpdate={fetchBeds} // Refresh main grid when a bed is added/edited
+          onUpdate={fetchBeds} 
         />
       )}
 
@@ -149,7 +144,7 @@ const Ward_A_NurseInventory = () => {
 // --- SUB-COMPONENT: BED DETAILS MODAL ---
 const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
   const [search, setSearch] = useState('');
-  const [beds, setBeds] = useState(ward.beds || []); // Initialize with passed beds
+  const [beds, setBeds] = useState(ward.beds || []); 
   const [isAddingBed, setIsAddingBed] = useState(false);
   const [confirmingBed, setConfirmingBed] = useState(null);
 
@@ -157,7 +152,9 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
   const [newBedType, setNewBedType] = useState('Standard Hospital Bed');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sync beds if the parent updates (e.g., re-fetch)
+  // Is this the authorized ward? (Ward A)
+  const isAuthorized = ward.id === 'WARD-A';
+
   useEffect(() => {
     setBeds(ward.beds || []);
   }, [ward.beds]);
@@ -181,8 +178,7 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
         alert("✅ Bed Saved!");
         setNewBedId('');
         setIsAddingBed(false);
-        onUpdate(); // Trigger parent refresh to get new data
-        // Optimistic update for immediate UI feedback
+        onUpdate(); 
         setBeds(prev => [...prev, { bed_id: newBedId, bed_type: newBedType, status: 'Functional' }]);
       } else {
         const res = await response.json();
@@ -197,7 +193,6 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
     if (!confirmingBed) return;
     const newStatus = confirmingBed.status === 'Functional' ? 'Broken' : 'Functional';
     
-    // Optimistic Update
     setBeds(prev => prev.map(b => b.bed_id === confirmingBed.bed_id ? { ...b, status: newStatus } : b));
     setConfirmingBed(null);
 
@@ -207,11 +202,10 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bed_id: confirmingBed.bed_id, status: newStatus })
       });
-      onUpdate(); // Refresh main grid counts
+      onUpdate(); 
     } catch (error) {
       console.error("Update failed", error);
       alert("Failed to save status change.");
-      // Revert
       setBeds(prev => prev.map(b => b.bed_id === confirmingBed.bed_id ? { ...b, status: confirmingBed.status } : b));
     }
   };
@@ -239,9 +233,14 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
             <p style={{ margin: '4px 0 0', color: '#64748b' }}>Inventory Management</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setIsAddingBed(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              <Plus size={18} /> Add New Bed
-            </button>
+            
+            {/* --- CONDITIONALLY RENDER ADD BUTTON --- */}
+            {isAuthorized && (
+              <button onClick={() => setIsAddingBed(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                <Plus size={18} /> Add New Bed
+              </button>
+            )}
+
             <button onClick={onClose} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 12, padding: 10, cursor: 'pointer', color: '#64748b' }}>
               <X size={20} />
             </button>
@@ -261,7 +260,12 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
           {filteredBeds.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
               {filteredBeds.map((bed) => (
-                <BedCard key={bed.bed_id} bed={bed} onEdit={() => setConfirmingBed(bed)} />
+                <BedCard 
+                  key={bed.bed_id} 
+                  bed={bed} 
+                  canEdit={isAuthorized} // Pass permission to child
+                  onEdit={() => setConfirmingBed(bed)} 
+                />
               ))}
             </div>
           ) : (
@@ -327,7 +331,7 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
 };
 
 // --- BED CARD ---
-const BedCard = ({ bed, onEdit }) => {
+const BedCard = ({ bed, onEdit, canEdit }) => {
   const isWorking = bed.status === 'Functional';
   const statusColor = isWorking ? '#10b981' : '#ef4444'; 
   const statusBg = isWorking ? '#ecfdf5' : '#fef2f2';    
@@ -345,19 +349,22 @@ const BedCard = ({ bed, onEdit }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>{bed.bed_id}</span>
         
-        <button 
-          onClick={onEdit}
-          title="Edit Status"
-          style={{ 
-            background: 'transparent', border: 'none', cursor: 'pointer', 
-            padding: 4, borderRadius: 6, color: '#94a3b8',
-            transition: 'background 0.2s, color 0.2s'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
-          onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
-        >
-          <Edit2 size={16} />
-        </button>
+        {/* --- CONDITIONALLY RENDER EDIT BUTTON --- */}
+        {canEdit && (
+          <button 
+            onClick={onEdit}
+            title="Edit Status"
+            style={{ 
+              background: 'transparent', border: 'none', cursor: 'pointer', 
+              padding: 4, borderRadius: 6, color: '#94a3b8',
+              transition: 'background 0.2s, color 0.2s'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
+          >
+            <Edit2 size={16} />
+          </button>
+        )}
       </div>
       
       <div>
