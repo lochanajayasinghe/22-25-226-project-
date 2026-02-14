@@ -20,7 +20,7 @@ const ETU_NurseInventory = () => {
   const [allBeds, setAllBeds] = useState([]); // Stores DB Data
   const [loading, setLoading] = useState(true);
 
-  // --- 1. CONFIGURATION: WARD DEFINITIONS ---
+  // --- 1. CONFIGURATION: ALL WARDS ---
   const wardConfig = [
     { id: 'ETU', name: 'Emergency Treatment Unit', icon: Activity, color: '#ef4444' },
     { id: 'WARD-A', name: 'Ward A (Medical)', icon: Stethoscope, color: '#3b82f6' },
@@ -152,6 +152,9 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
   const [newBedType, setNewBedType] = useState('Standard Hospital Bed');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Permission Check: Only ETU is authorized
+  const isAuthorized = ward.id === 'ETU';
+
   useEffect(() => {
     setBeds(ward.beds || []);
   }, [ward.beds]);
@@ -231,8 +234,8 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             
-            {/* --- BUTTON VISIBILITY CONDITION --- */}
-            {ward.id === 'ETU' && (
+            {/* --- CONDITIONALLY RENDER ADD BUTTON --- */}
+            {isAuthorized && (
               <button onClick={() => setIsAddingBed(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 <Plus size={18} /> Add New Bed
               </button>
@@ -257,7 +260,12 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
           {filteredBeds.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
               {filteredBeds.map((bed) => (
-                <BedCard key={bed.bed_id} bed={bed} onEdit={() => setConfirmingBed(bed)} />
+                <BedCard 
+                  key={bed.bed_id} 
+                  bed={bed} 
+                  canEdit={isAuthorized} // Pass permission to child
+                  onEdit={() => setConfirmingBed(bed)} 
+                />
               ))}
             </div>
           ) : (
@@ -323,7 +331,7 @@ const BedDetailsModal = ({ ward, onClose, onUpdate }) => {
 };
 
 // --- BED CARD ---
-const BedCard = ({ bed, onEdit }) => {
+const BedCard = ({ bed, onEdit, canEdit }) => {
   const isWorking = bed.status === 'Functional';
   const statusColor = isWorking ? '#10b981' : '#ef4444'; 
   const statusBg = isWorking ? '#ecfdf5' : '#fef2f2';    
@@ -341,19 +349,22 @@ const BedCard = ({ bed, onEdit }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>{bed.bed_id}</span>
         
-        <button 
-          onClick={onEdit}
-          title="Edit Status"
-          style={{ 
-            background: 'transparent', border: 'none', cursor: 'pointer', 
-            padding: 4, borderRadius: 6, color: '#94a3b8',
-            transition: 'background 0.2s, color 0.2s'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
-          onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
-        >
-          <Edit2 size={16} />
-        </button>
+        {/* --- CONDITIONALLY RENDER EDIT BUTTON --- */}
+        {canEdit && (
+          <button 
+            onClick={onEdit}
+            title="Edit Status"
+            style={{ 
+              background: 'transparent', border: 'none', cursor: 'pointer', 
+              padding: 4, borderRadius: 6, color: '#94a3b8',
+              transition: 'background 0.2s, color 0.2s'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
+          >
+            <Edit2 size={16} />
+          </button>
+        )}
       </div>
       
       <div>
