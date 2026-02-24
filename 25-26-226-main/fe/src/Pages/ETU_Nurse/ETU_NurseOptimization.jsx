@@ -10,7 +10,7 @@ import {
   LogOut, 
   Users,
   LayoutDashboard,
-  Tent // Added for Surge Icon
+  Tent 
 } from 'lucide-react';
 
 const ETU_NurseOptimization = () => {
@@ -44,7 +44,7 @@ const ETU_NurseOptimization = () => {
     <div className="flex flex-col items-center justify-center h-[80vh] text-slate-500">
       <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
       <h2 className="text-xl font-semibold text-slate-700">Optimizing Bed Allocation...</h2>
-      <p>Analyzing patient inflow and ward capacity.</p>
+      <p>Analyzing patient inflow and ward capacity using Ensemble AI.</p>
     </div>
   );
 
@@ -86,9 +86,19 @@ const ETU_NurseOptimization = () => {
             </span>
           </div>
         </div>
-        <div className="text-right hidden md:block">
-          <p className="text-sm text-slate-400 font-medium uppercase tracking-wide">AI Confidence</p>
-          <p className="text-2xl font-bold text-slate-700">{data.confidence_score}</p>
+        
+        {/* --- RIGHT SIDE: Shows Model & Confidence --- */}
+        <div className="text-right hidden md:flex gap-6 items-center">
+          <div className="text-right">
+            <p className="text-sm text-slate-400 font-medium uppercase tracking-wide mb-1">AI Engine</p>
+            <p className="text-sm font-bold text-blue-700 bg-blue-100 border border-blue-200 px-3 py-1 rounded-lg">
+              {data.model_used || "Ensemble (TFT + LSTM)"}
+            </p>
+          </div>
+          <div className="text-right border-l border-slate-200 pl-6">
+            <p className="text-sm text-slate-400 font-medium uppercase tracking-wide">Confidence</p>
+            <p className="text-3xl font-black text-slate-700">{data.confidence_score}</p>
+          </div>
         </div>
       </header>
 
@@ -201,7 +211,6 @@ const ETU_NurseOptimization = () => {
           
           {/* New Breakdown Table for Surge Beds */}
           <div className="space-y-2 mb-4">
-             {/* Only show if count > 0 for cleaner UI, or show all if needed */}
              <div className="flex justify-between text-sm p-2 bg-white/60 rounded border border-orange-100">
                 <span className="text-slate-600">ETU Corridors</span>
                 <span className="font-bold text-orange-700">{surgeBreakdown.etu}</span>
