@@ -359,7 +359,7 @@ const DailyInputModal = ({ ward, onClose }) => {
   const [wardCapacity, setWardCapacity] = useState(0); 
   
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [shift, setShift] = useState('Day'); 
+  const [shift, setShift] = useState('Morning (A)'); 
   
   const [data, setData] = useState({ 
     admissions: 0, 
@@ -482,17 +482,24 @@ const DailyInputModal = ({ ward, onClose }) => {
               <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Clock size={14} /> Shift
               </label>
-              <select value={shift} onChange={(e) => setShift(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #cbd5e1', outline: 'none', background: 'white', color: '#1e293b' }}>
-                <option value="Day">Day Shift</option>
-                <option value="Night">Night Shift</option>
+              <select 
+                value={shift} 
+                onChange={(e) => setShift(e.target.value)} 
+                style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #cbd5e1', outline: 'none', background: 'white', color: '#1e293b' }}
+              >
+                <option value="Morning (A)">Morning Shift</option>
+                <option value="Evening (B)">Evening Shift</option>
+                <option value="Night (C)">Night Shift</option>
               </select>
             </div>
           </div>
 
+          {/* Inputs Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             <InputCard label="New Arrivals" value={data.admissions} onChange={(v) => updateField('admissions', v)} />
             <InputCard label="Discharges" value={data.discharges} onChange={(v) => updateField('discharges', v)} />
             <InputCard label="Transfers Out" value={data.transfersOut} onChange={(v) => updateField('transfersOut', v)} />
+            
             <InputCard label="Deaths" value={data.deaths} onChange={(v) => updateField('deaths', v)} isDanger />
             
             <div style={{ gridColumn: 'span 2' }}>
