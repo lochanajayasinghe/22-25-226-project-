@@ -356,7 +356,7 @@ const DailyInputModal = ({ ward, onClose }) => {
   const [wardCapacity, setWardCapacity] = useState(0); 
   
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [shift, setShift] = useState('Day'); 
+  const [shift, setShift] = useState('Morning (A)'); 
   
   const [data, setData] = useState({ 
     admissions: 0, 
@@ -492,8 +492,9 @@ const DailyInputModal = ({ ward, onClose }) => {
                 onChange={(e) => setShift(e.target.value)} 
                 style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #cbd5e1', outline: 'none', background: 'white', color: '#1e293b' }}
               >
-                <option value="Day">Day Shift</option>
-                <option value="Night">Night Shift</option>
+                <option value="Morning (A)">Morning Shift</option>
+                <option value="Evening (B)">Evening Shift</option>
+                <option value="Night (C)">Night Shift</option>
               </select>
             </div>
           </div>
